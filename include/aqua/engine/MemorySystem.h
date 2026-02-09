@@ -10,7 +10,7 @@ namespace aqua {
 	class Engine;
 
 	// System for managing heap memory, which Engine needs
-	class EngineMemorySystem {
+	class MemorySystem {
 	public:
 		// Main Engine allocator
 		class GlobalAllocator {
@@ -57,11 +57,11 @@ namespace aqua {
 			public:
 				Pointer Allocate(size_t count) const noexcept {
 					return reinterpret_cast<Pointer>(
-						EngineMemorySystem::_GetConstGlobalAllocator().Allocate(sizeof(T) * count));
+						MemorySystem::GetConstGlobalAllocator().Allocate(sizeof(T) * count));
 				}
 
 				void Deallocate(Pointer ptr, size_t count) const noexcept {
-					return EngineMemorySystem::_GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
+					return MemorySystem::GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
 				}
 
 				Proxy OnDataStructureCopy() const noexcept { return Proxy(); }
@@ -76,19 +76,19 @@ namespace aqua {
 		friend struct GlobalAllocator::Proxy;
 
 	public:
-		EngineMemorySystem(const EngineMemorySystem&) = delete;
-		EngineMemorySystem(EngineMemorySystem&&) noexcept = delete;
+		MemorySystem(const MemorySystem&) = delete;
+		MemorySystem(MemorySystem&&) noexcept = delete;
 
-		EngineMemorySystem& operator=(const EngineMemorySystem&) = delete;
-		EngineMemorySystem& operator=(EngineMemorySystem&&) noexcept = delete;
+		MemorySystem& operator=(const MemorySystem&) = delete;
+		MemorySystem& operator=(MemorySystem&&) noexcept = delete;
 
 	private:
-		static EngineMemorySystem::GlobalAllocator&       _GetGlobalAllocator()	     noexcept;
-		static const EngineMemorySystem::GlobalAllocator& _GetConstGlobalAllocator() noexcept;
+		static MemorySystem::GlobalAllocator&       GetGlobalAllocator()	    noexcept;
+		static const MemorySystem::GlobalAllocator& GetConstGlobalAllocator() noexcept;
 
 	private:
 		// Nothrow operator new/delete
-		class _BootstrapAllocator {
+		class BootstrapAllocator {
 		public:
 			void* Allocate(size_t bytes) const noexcept;
 			void Deallocate(void* ptr, size_t bytes) const noexcept;
@@ -96,7 +96,7 @@ namespace aqua {
 
 	private:
 		friend class Engine;
-		EngineMemorySystem(Status& status);
+		MemorySystem(Status& status);
 
 	private:
 		GlobalAllocator m_globalAllocator;

@@ -6,11 +6,11 @@
 
 namespace aqua {
 	// Data, that cannot be copied (incapsulates pointer to this data and behaves like pointer)
-	template <typename T, typename Allocator = aqua::EngineMemorySystem::GlobalAllocator::Proxy<T>>
+	template <typename T, typename Allocator = aqua::MemorySystem::GlobalAllocator::Proxy<T>>
 	class UniqueData;
 
 	// Data, that can be shared and observed (incapsulates pointer to this data and behaves like pointer)
-	template <typename T, typename Allocator = aqua::EngineMemorySystem::GlobalAllocator::Proxy<T>>
+	template <typename T, typename Allocator = aqua::MemorySystem::GlobalAllocator::Proxy<T>>
 	class SharedData;
 
 	// Observes shared data and check, whether it's alive or not
@@ -115,7 +115,7 @@ namespace aqua {
 				size_t observerCount = 0;
 			};
 
-			using _CounterAllocatorType = aqua::EngineMemorySystem::GlobalAllocator::Proxy<_Counter>;
+			using _CounterAllocatorType = aqua::MemorySystem::GlobalAllocator::Proxy<_Counter>;
 			using _CounterPointer		= typename _CounterAllocatorType::Pointer;
 
 		protected:
@@ -123,7 +123,7 @@ namespace aqua {
 		}; // class _SharedDataBase
 	} // namespace _memory
 
-	template <typename T, typename Allocator = aqua::EngineMemorySystem::GlobalAllocator::Proxy<T>, typename ... Types>
+	template <typename T, typename Allocator = aqua::MemorySystem::GlobalAllocator::Proxy<T>, typename ... Types>
 	Expected<UniqueData<T, Allocator>, Error> CreateUniqueData(Types&& ... args) {
 		UniqueData<T, Allocator> data;
 		typename UniqueData<T, Allocator>::Pointer ptr = data.GetAllocator().Allocate(1);
@@ -142,7 +142,8 @@ namespace aqua {
 		data.m_pair.value = ptr;
 		return Expected<UniqueData<T, Allocator>, Error>(std::move(data));
 	}
-
+	
+	// Data, that cannot be copied (incapsulates pointer to this data and behaves like pointer)
 	template <typename T, typename Allocator>
 	class UniqueData : _memory::_UniqueDataBase {
 	public:
@@ -257,7 +258,7 @@ namespace aqua {
 		_memory::_AllocatorPair<Pointer, AllocatorType> m_pair;
 	}; // class UniqueData
 
-	template <typename T, typename Allocator = aqua::EngineMemorySystem::GlobalAllocator::Proxy<T>, typename ... Types>
+	template <typename T, typename Allocator = aqua::MemorySystem::GlobalAllocator::Proxy<T>, typename ... Types>
 	Expected<SharedData<T, Allocator>, Error> CreateSharedData(Types&& ... args) {
 		SharedData<T, Allocator> data;
 		typename SharedData<T, Allocator>::Pointer ptr = data.GetAllocator().Allocate(1);
@@ -266,7 +267,8 @@ namespace aqua {
 				return Unexpected<Error>(Error::FAILED_TO_ALLOCATE_MEMORY);
 			}
 		}
-		typename SharedData<T, Allocator>::_CounterPointer counterPtr = data.m_counterPair.GetAllocator().Allocate(1);
+		typename SharedData<T, Allocator>::_CounterPointer counterPtr =
+			data.m_counterPair.GetAllocator().Allocate(1);
 		if (counterPtr == nullptr) {
 			data.GetAllocator().Deallocate(ptr, 1);
 			return Unexpected<Error>(Error::FAILED_TO_ALLOCATE_MEMORY);
@@ -285,6 +287,7 @@ namespace aqua {
 		return Expected<SharedData<T, Allocator>, Error>(std::move(data));
 	}
 
+	// Data, that can be shared and observed (incapsulates pointer to this data and behaves like pointer)
 	template <typename T, typename Allocator>
 	class SharedData : public _memory::_SharedDataBase {
 	public:
@@ -462,6 +465,7 @@ namespace aqua {
 		_memory::_AllocatorPair<Pointer, AllocatorType> m_pair;
 	}; // class SharedData
 
+	// Observes shared data and check, whether it's alive or not
 	template <typename T>
 	class DataObserver : private _memory::_SharedDataBase {
 	public:

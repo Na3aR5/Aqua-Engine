@@ -20,7 +20,9 @@ namespace aqua {
 			virtual ~ILoggerProcess() = default;
 
 		public:
-			virtual Expected<Success, Error> WriteMessage(const char* buffer, unsigned size) = 0;
+			virtual Status WriteMessage(const char* buffer, unsigned size) = 0;
+
+			virtual void Destroy() noexcept = 0;
 		}; // class ILoggerProcess
 
 		enum class Level : uint8_t {
@@ -183,7 +185,7 @@ namespace aqua {
 
 		std::atomic<size_t>		   m_writeIndex{ 0 };
 		std::atomic<size_t>		   m_readIndex{ 0 };
-		std::atomic<bool>		   m_isRunning{ true };
+		std::atomic<bool>		   m_isRunning{ false };
 		std::thread				   m_logThread;
 	}; // class Logger
 } // namespace aqua

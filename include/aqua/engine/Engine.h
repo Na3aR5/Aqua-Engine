@@ -2,10 +2,9 @@
 #define AQUA_ENGINE_HEADER
 
 #include <aqua/engine/MemorySystem.h>
-#include <aqua/engine/Window.h>
+#include <aqua/engine/WindowSystem.h>
+#include <aqua/engine/LayerSystem.h>
 #include <aqua/Logger.h>
-
-#include <aqua/datastructures/Array.h>
 
 namespace aqua {
 	struct EngineInfo {
@@ -16,22 +15,22 @@ namespace aqua {
 
 	public:
 		// Required fields
-		WindowInfo  window{};
+		WindowSystemInfo windowSystem{};
 
 		// Optional fields
-		uint64_t    flags = 0;
+		uint64_t flags = 0;
 	}; // struct EngineInfo
-
-	// Interface for layer, that describes what main application actually does (from top layer to bottom)
-	class ILayer {
-	public:
-		virtual void OnEvent()  = 0;
-		virtual void OnUpdate() = 0;
-		virtual void OnRender() = 0;
-	}; // class ILayer
 
 	// Engine main class
 	class Engine {
+	public:
+		enum class State {
+			CREATED,
+			STARTED,
+			STOPPED,
+			CRASHED
+		}; // enum State
+
 	public:
 		Engine(const EngineInfo& info, Status& status) noexcept;
 		~Engine();
@@ -40,24 +39,21 @@ namespace aqua {
 		static Engine&       Get()      noexcept;
 		static const Engine& GetConst() noexcept;
 
+		void StopMainLoopRequest() noexcept;
+
+	public:
 		Status MainLoop();
 
 	private:
-		enum class _State {
-			CREATED,
-			STARTED,
-			STOPPED,
-			CRASHED
-		}; // enum _State
+		Config	     m_config;
+		EngineInfo   m_info;
+		State	     m_state;
 
-	private:
-		Config			   m_config;
-		EngineInfo		   m_info;
-		_State			   m_state;
-
-		EngineMemorySystem m_memorySystem;
-		Logger			   m_logger;
-		Window			   m_window;
+		MemorySystem m_memorySystem;
+		Logger	     m_logger;
+		WindowSystem m_windowSystem;
+		EventSystem  m_eventSystem;
+		LayerSystem  m_layerSystem;
 	}; // class Engine
 } // namespace aqua
 

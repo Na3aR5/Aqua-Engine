@@ -22,7 +22,6 @@
 
 // ------------------------------------------ OpenGL ------------------------------------------
 
-#define AQUA_OPENGL_VERSION_MAJOR 4
-#define AQUA_OPENGL_VERSION_MINOR 5
+#define AQUA_OPENGL_GRAPHICS_API 1
 
 #endif // !AQUA_BUILD_HEADER

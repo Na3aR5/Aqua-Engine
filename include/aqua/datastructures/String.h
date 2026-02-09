@@ -256,7 +256,7 @@ namespace aqua {
 		[[nodiscard]] Expected<Success, Error> Insert(
 		ConstIterator where, size_t count, ValueType value) noexcept {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			ConstIterator begin = cbegin();
 			ConstIterator end   = cend();
@@ -281,7 +281,7 @@ namespace aqua {
 		[[nodiscard]] Expected<Success, Error> Insert(
 		ConstIterator where, const BasicSafeString& other) noexcept {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			ConstIterator begin = cbegin();
 			ConstIterator end   = cend();
@@ -301,7 +301,7 @@ namespace aqua {
 		// 'nullptr' is considered as an empty string
 		[[nodiscard]] Expected<Success, Error> Insert(ConstIterator where, ConstPointer cstr) noexcept {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			size_t cstrSize;
 			if (cstr == nullptr || (cstrSize = this->_CStrLength(cstr)) == 0) {
@@ -324,7 +324,7 @@ namespace aqua {
 		[[nodiscard]] Expected<Success, Error> Insert(
 		ConstIterator where, Iterator rangeBegin, Iterator rangeEnd) noexcept {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			size_t size = std::distance(rangeBegin, rangeEnd);
 			if (size == 0) {
@@ -377,7 +377,7 @@ namespace aqua {
 		// Remove characters in any valid range ['rangeBegin, 'rangeEnd') in the string
 		Expected<Success, Error> Remove(ConstIterator rangeBegin, ConstIterator rangeEnd) noexcept {
 			if (!_IsValidIterator(rangeBegin) || !_IsValidIterator(rangeEnd)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			ConstIterator begin = cbegin();
 			ConstIterator end   = cend();

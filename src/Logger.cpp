@@ -1,4 +1,5 @@
 #include <aqua/Logger.h>
+#include <aqua/Assert.h>
 #include <aqua/Platform.h>
 
 #if AQUA_PLATFORM_WINDOWS
@@ -56,27 +57,34 @@ namespace {
 		LoggerProcessNewConsole(LoggerProcessNewConsole&&) noexcept = delete;
 		LoggerProcessNewConsole& operator=(LoggerProcessNewConsole&&) noexcept = delete;
 
-		~LoggerProcessNewConsole() {
-			if (m_processHandle) {
-				if (m_writeHandle) {
-					DWORD written;
-					WriteFile(m_writeHandle, m_cmdSet.exitCmd.GetPtr(), 
-						static_cast<DWORD>(m_cmdSet.exitCmd.GetSize()), &written, NULL);
-				}
-				WaitForSingleObject(m_processHandle, INFINITE);
-				CloseHandle(m_processHandle);
-			}
-			CloseHandle(m_threadHandle);
-		}
+		~LoggerProcessNewConsole() { Destroy(); }
 
 	public:
-		virtual aqua::Expected<aqua::Success, aqua::Error> WriteMessage(const char* buffer, unsigned size) override {
+		virtual aqua::Status WriteMessage(const char* buffer, unsigned size) override {
 			DWORD written;
 			WriteFile(m_writeHandle, buffer, size, &written, NULL);
 			if (written != size) {
 				return aqua::Unexpected<aqua::Error>(aqua::Error::FAILED_TO_WRITE_LOG_MESSAGE);
 			}
 			return aqua::Success{};
+		}
+
+		virtual void Destroy() noexcept override {
+			if (m_processHandle) {
+				if (m_writeHandle) {
+					DWORD written;
+					WriteFile(m_writeHandle, m_cmdSet.exitCmd.GetPtr(),
+						static_cast<DWORD>(m_cmdSet.exitCmd.GetSize()), &written, NULL);
+				}
+				WaitForSingleObject(m_processHandle, INFINITE);
+				CloseHandle(m_processHandle);
+			}
+			if (m_threadHandle) {
+				CloseHandle(m_threadHandle);
+			}
+			m_writeHandle   = nullptr;
+			m_processHandle = nullptr;
+			m_threadHandle  = nullptr;
 		}
 
 	private:
@@ -95,6 +103,12 @@ namespace {
 
 aqua::Logger::Logger(
 const Config& config, Status& status) : m_config(config) {
+	AQUA_ASSERT(g_Logger == nullptr, Literal("Attempt to create another Logger instance"));
+
+	if (g_Logger != nullptr) {
+		return;
+	}
+
 	switch (m_config.logger.destination) {
 		case Config::Logger::Destination::CONSOLE: {
 			LoggerProcessNewConsole::CommandSet cmdSet = {
@@ -114,6 +128,7 @@ const Config& config, Status& status) : m_config(config) {
 			break;
 	}
 
+	m_isRunning = true;
 	m_logThread = std::thread([this]() {
 		while (m_isRunning) {
 			size_t readIndex  = m_readIndex.load(std::memory_order_relaxed);
@@ -169,8 +184,10 @@ const Config& config, Status& status) : m_config(config) {
 }
 
 aqua::Logger::~Logger() {
-	m_isRunning = false;
-	m_logThread.join();
+	if (m_isRunning == true) {
+		m_isRunning = false;
+		m_logThread.join();
+	}
 }
 
 aqua::Logger& aqua::Logger::Get() noexcept {

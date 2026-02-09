@@ -7,6 +7,9 @@
 
 namespace aqua {
 	enum class Error {
+		// Logic
+		ITERATOR_OR_INDEX_OUT_OF_RANGE,
+
 		// Memory
 		FAILED_TO_ALLOCATE_MEMORY,
 
@@ -27,9 +30,13 @@ namespace aqua {
 		INCORRECT_WINDOW_RESOLUTION_OR_TITLE_IS_NULLPTR,
 		FAILED_TO_CREATE_WINDOW_INSTANCE,
 
+		// Engine.LayerSystem
+		LAYER_FAILED_TO_HANDLE_EVENT,
+		LAYER_FAILED_TO_UPDATE,
+		LAYER_FAILED_TO_RENDER,
+
 		// Data Structure
 		DATA_STRUCTURE_FAILED_TO_COPY_ALLOCATOR,
-		DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE,
 	}; // enum Error
 
 	template <typename ErrorT>
@@ -110,7 +117,8 @@ namespace aqua {
 		Expected(const U&) requires(!std::is_same_v<std::decay_t<U>, T>) = delete;
 
 		template <typename U>
-		Expected(U&&) requires(!std::is_same_v<std::decay_t<U>, T>) = delete;
+		Expected(U&&) requires(!std::is_same_v<std::decay_t<U>, ValueType> &&
+							   !std::is_same_v<std::decay_t<U>, Expected>) = delete;
 
 		~Expected() { _Destroy(); }
 
@@ -246,10 +254,11 @@ namespace aqua {
 		Expected(ErrorType&& error) noexcept : m_error(std::move(error)), m_hasValue(false) {}
 
 		template <typename U>
-		Expected(const U&) = delete;
+		Expected(const U&) requires(!std::is_same_v<std::decay_t<U>, Success>) = delete;
 
 		template <typename U>
-		Expected(U&&) = delete;
+		Expected(U&&) requires(!std::is_same_v<std::decay_t<U>, Success> &&
+							   !std::is_same_v<std::decay_t<U>, Expected>) = delete;
 
 		~Expected() { _Destroy(); }
 

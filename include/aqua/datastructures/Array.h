@@ -7,7 +7,7 @@
 
 namespace aqua {
 	// Nothrow dynamic array
-	template <typename T, typename Allocator = aqua::EngineMemorySystem::GlobalAllocator::Proxy<T>>
+	template <typename T, typename Allocator = aqua::MemorySystem::GlobalAllocator::Proxy<T>>
 	class SafeArray {
 	public:
 		using AllocatorType  = Allocator;
@@ -197,7 +197,7 @@ namespace aqua {
 		[[nodiscard]] Expected<Iterator, Error> Emplace(ConstIterator where, Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			if (where == cend()) {
 				return EmplaceBack(std::forward<Types>(args)...);
@@ -227,7 +227,7 @@ namespace aqua {
 		ConstIterator where, size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
 			if (count == 0) {
 				return where == nullptr ? nullptr : m_pair.value.first + (where - cbegin());
@@ -315,6 +315,12 @@ namespace aqua {
 		size_t GetCapacity() const noexcept {
 			return m_pair.value.first == nullptr ? 0 : m_pair.value.end - m_pair.value.first;
 		}
+
+		Reference      First()       { return *m_pair.value.first; }
+		ConstReference First() const { return *m_pair.value.first; }
+
+		Reference      Last()       { return *(m_pair.value.last - 1); }
+		ConstReference Last() const { return *(m_pair.value.last - 1); }
 
 	// Iterator methods
 	public:
