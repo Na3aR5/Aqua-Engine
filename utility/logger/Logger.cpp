@@ -9,6 +9,16 @@ static void SetConsoleColor(WORD color) {
 	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
 }
 
+static int WriteTime(const std::string& message) {
+	// write time point
+	int i = 1;
+	for (; message[i] != ']'; ++i) {
+		std::cout << message[i];
+	}
+	std::cout << message[i++] << ' ';
+	return i;
+}
+
 int main() {
 	std::cout << "Start logger ...\n\n";
 
@@ -21,18 +31,34 @@ int main() {
 		}
 		int logLevel = (int)message[0];
 
+		int offset;
 		switch (logLevel) {
 			case 0: // FATAL
 				SetConsoleColor(FOREGROUND_RED | FOREGROUND_INTENSITY);
+				offset = WriteTime(message);
 				std::cout << "[FATAL ERROR] - ";
 				break;
 
 			case 1: // WARNING
 				SetConsoleColor(FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+				offset = WriteTime(message);
 				std::cout << "[WARNING] - ";
 				break;
+
+			case 2: // INFO
+				SetConsoleColor(FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+				offset = WriteTime(message);
+				std::cout << "[INFO] - ";
+				break;
+
+			case 3: // Memory allocation / deallocation
+				SetConsoleColor(FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+				offset = WriteTime(message);
+				std::cout << "[ALLOC] - ";
+				break;
 		}
-		std::cout << (message.c_str() + 1) << std::endl;
+		// write actual message
+		std::cout << (message.c_str() + offset) << '\n';
 	}
 
 	system("pause");

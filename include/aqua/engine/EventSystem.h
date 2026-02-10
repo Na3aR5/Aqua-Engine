@@ -9,6 +9,9 @@
 namespace aqua {
 	class EventSystem {
 	public:
+		~EventSystem();
+
+	public:
 		static EventSystem& Get() noexcept;
 		static const EventSystem& GetConst() noexcept;
 

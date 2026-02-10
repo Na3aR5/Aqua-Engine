@@ -1,6 +1,7 @@
 ﻿#ifndef AQUA_UTILITY_MEMORY_HEADER
 #define AQUA_UTILITY_MEMORY_HEADER
 
+#include <aqua/Build.h>
 #include <aqua/Error.h>
 #include <aqua/engine/MemorySystem.h>
 
@@ -83,13 +84,35 @@ namespace aqua {
 		}; // struct _AllocatorPair
 
 		class _UniqueDataBase {
+		public:
+			_UniqueDataBase() = default;
+			_UniqueDataBase(const _UniqueDataBase&) = delete;
+
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+			_UniqueDataBase(_UniqueDataBase&& other) noexcept : m_memorySize(other.m_memorySize) {
+				other.m_memorySize = 0;
+			}
+#else
+			_UniqueDataBase(_UniqueDataBase&& other) = default;
+#endif // AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+
 		protected:
 			struct _Helper {
 				template <typename T, typename Allocator>
 				void ForgetPtr(UniqueData<T, Allocator>& data) noexcept {
 					data.m_pair.value = nullptr;
 				}
+
+				template <typename T, typename Allocator>
+				size_t GetMemorySize(const UniqueData<T, Allocator>& data) const noexcept {
+					return data.m_memorySize;
+				}
 			}; // struct _UniqueDataHelper
+
+		protected:
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+			size_t m_memorySize = 0;
+#endif // AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
 		}; // class _UniqueDataBase
 
 		class _SharedDataBase {
@@ -139,13 +162,16 @@ namespace aqua {
 			data.GetAllocator().Deallocate(ptr, 1);
 			throw;
 		}
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+		data.m_memorySize = sizeof(typename UniqueData<T, Allocator>::ValueType);
+#endif // #if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
 		data.m_pair.value = ptr;
 		return Expected<UniqueData<T, Allocator>, Error>(std::move(data));
 	}
 	
 	// Data, that cannot be copied (incapsulates pointer to this data and behaves like pointer)
 	template <typename T, typename Allocator>
-	class UniqueData : _memory::_UniqueDataBase {
+	class UniqueData : public _memory::_UniqueDataBase {
 	public:
 		template <typename _T, typename _Allocator, typename ... Types>
 		friend Expected<UniqueData<_T, _Allocator>, Error> CreateUniqueData(Types&& ...);
@@ -160,22 +186,24 @@ namespace aqua {
 		using ConstReference = const ValueType&;
 
 	private:
-		friend struct _memory::_UniqueDataBase::_Helper;
+		using _BaseType = _memory::_UniqueDataBase;
+		friend struct _BaseType::_Helper;
 
 	public:
-		UniqueData() noexcept requires(std::is_nothrow_default_constructible_v<AllocatorType>) : m_pair() {};
+		UniqueData() noexcept requires(std::is_nothrow_default_constructible_v<AllocatorType>) :
+		_BaseType(), m_pair() {};
 
 		UniqueData(const UniqueData&) = delete;
 
 		UniqueData(UniqueData&& other) noexcept requires(std::is_nothrow_move_constructible_v<AllocatorType>) :
-		m_pair(std::move(other.m_pair)) {
+		_BaseType(std::move(other)), m_pair(std::move(other.m_pair)) {
 			other.m_pair.value = nullptr;
 		}
 
 		template <typename U, typename AllocatorU>
-		UniqueData(UniqueData<U, AllocatorU>&& other) noexcept requires(
-		std::is_nothrow_constructible_v<AllocatorType, AllocatorU&&>) :
-		m_pair(other.GetPtr(), std::move(other.GetAllocator())) {
+		UniqueData(UniqueData<U, AllocatorU>&& other) noexcept
+		requires(std::is_nothrow_constructible_v<AllocatorType, AllocatorU&&>) :
+		_BaseType(std::move(other)), m_pair(other.GetPtr(), std::move(other.GetAllocator())) {
 			static_assert(std::is_base_of_v<T, U> && std::is_polymorphic_v<U>,
 				"aqua::UniqueData - T is not a polymorphic base of U");
 
@@ -190,22 +218,33 @@ namespace aqua {
 	public:
 		UniqueData& operator=(const UniqueData&) = delete;
 
-		UniqueData& operator=(UniqueData&& other) noexcept requires(std::is_nothrow_move_assignable_v<AllocatorType>) {
+		UniqueData& operator=(UniqueData&& other) noexcept
+		requires(std::is_nothrow_move_assignable_v<AllocatorType>) {
 			_DestroyDeallocate();
 			m_pair = std::move(other.m_pair);
 			other.m_pair.value = nullptr;
+
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+			m_memorySize = other.m_memorySize;
+			other.m_memorySize = 0;
+#endif // AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+
 			return *this;
 		}
 
 		template <typename U, typename AllocatorU>
-		UniqueData& operator=(UniqueData<U, AllocatorU>&& other) requires(
-		std::is_nothrow_assignable_v<AllocatorType, AllocatorU&&>) {
+		UniqueData& operator=(UniqueData<U, AllocatorU>&& other)
+		requires(std::is_nothrow_assignable_v<AllocatorType, AllocatorU&&>) {
 			static_assert(std::is_base_of_v<T, U> && std::is_polymorphic_v<U>,
 				"aqua::UniqueData - T is not a polymorphic base of U");
 
 			_DestroyDeallocate();
 			m_pair.value = other.GetPtr();
 			m_pair.GetAllocator() = std::move(other.GetAllocator());
+
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+			m_memorySize = _BaseType::_Helper().GetMemorySize(other);
+#endif // AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
 
 			_memory::_UniqueDataBase::_Helper().ForgetPtr(other);
 			return *this;
@@ -250,7 +289,12 @@ namespace aqua {
 				if constexpr (!std::is_trivially_destructible_v<ValueType>) {
 					m_pair.value->~ValueType();
 				}
+#if AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
+				m_pair.GetAllocator().DeallocateBytes(m_pair.value, m_memorySize);
+				m_memorySize = 0;
+#else
 				m_pair.GetAllocator().Deallocate(m_pair.value, 1);
+#endif // AQUA_DEBUG_UNIQUE_DATA_TRACK_MEMORY_SIZE
 			}
 		}
 

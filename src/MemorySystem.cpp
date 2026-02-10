@@ -1,4 +1,5 @@
 #include <aqua/engine/MemorySystem.h>
+#include <aqua/Logger.h>
 #include <aqua/Assert.h>
 
 namespace {
@@ -14,10 +15,14 @@ void aqua::MemorySystem::BootstrapAllocator::Deallocate(void* ptr, size_t bytes)
 }
 
 void* aqua::MemorySystem::GlobalAllocator::Allocate(size_t bytes) const noexcept {
+	AQUA_LOG_ALLOC(Literal("Allocated {} bytes"), bytes);
 	return BootstrapAllocator().Allocate(bytes);
 }
 
 void aqua::MemorySystem::GlobalAllocator::Deallocate(void* ptr, size_t bytes) const noexcept {
+	AQUA_LOG_ALLOC_IF(ptr != nullptr, Literal("Deallocated {} bytes"), bytes);
+	AQUA_LOG_WARNING_IF(ptr == nullptr, Literal("Attempt to deallocate nullptr"));
+
 	BootstrapAllocator().Deallocate(ptr, bytes);
 }
 
@@ -31,6 +36,12 @@ aqua::MemorySystem::MemorySystem(Status& status) {
 		return;
 	}
 	g_MemorySystem = this;
+
+	AQUA_LOG(Literal("Engine memory system is initialized"));
+}
+
+aqua::MemorySystem::~MemorySystem() {
+	g_MemorySystem = nullptr;
 }
 
 aqua::MemorySystem::GlobalAllocator& aqua::MemorySystem::GetGlobalAllocator() noexcept {

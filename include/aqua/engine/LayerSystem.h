@@ -35,6 +35,9 @@ namespace aqua {
 		}; // class ILayer
 
 	public:
+		~LayerSystem();
+
+	public:
 		static LayerSystem& Get() noexcept;
 		static const LayerSystem& GetConst() noexcept;
 

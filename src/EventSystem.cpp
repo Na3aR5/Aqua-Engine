@@ -1,4 +1,5 @@
 #include <aqua/engine/EventSystem.h>
+#include <aqua/Logger.h>
 #include <aqua/Assert.h>
 
 #include <GLFW/glfw3.h>
@@ -61,4 +62,10 @@ aqua::EventSystem::EventSystem(Status& status) {
 		return;
 	}
 	g_EventSystem = this;
+
+	AQUA_LOG(Literal("Engine event system is initialized"));
+}
+
+aqua::EventSystem::~EventSystem() {
+	g_EventSystem = nullptr;
 }

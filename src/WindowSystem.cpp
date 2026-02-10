@@ -1,6 +1,8 @@
 #include <aqua/engine/WindowSystem.h>
 #include <aqua/engine/LayerSystem.h>
 #include <aqua/engine/GraphicsAPI.h>
+
+#include <aqua/Logger.h>
 #include <aqua/Assert.h>
 
 #include <GLFW/glfw3.h>
@@ -23,6 +25,8 @@ aqua::WindowSystem::WindowSystem(const WindowSystemInfo& info, Status& status) :
 		return;
 	}
 	g_WindowSystem = this;
+
+	AQUA_LOG(Literal("Engine window system is initialized"));
 }
 
 aqua::WindowSystem::~WindowSystem() {
@@ -30,6 +34,7 @@ aqua::WindowSystem::~WindowSystem() {
 		glfwDestroyWindow((GLFWwindow*)m_mainWindow);
 	}
 	_Terminate();
+	g_WindowSystem = nullptr;
 }
 
 void aqua::WindowSystem::_Terminate() noexcept {
@@ -54,11 +59,14 @@ aqua::Status aqua::WindowSystem::_CreateMainWindow() noexcept {
 	}
 	glfwMakeContextCurrent(newMainWindow);
 
+	AQUA_LOG(Literal("Main window is created"));
+
 #if AQUA_OPENGL_GRAPHICS_API
 	if (!GraphicsAPI_OpenGL::LoadOpenGL()) {
 		glfwDestroyWindow(newMainWindow);
 		return Unexpected<Error>(Error::FAILED_TO_LOAD_OPENGL_LIBRARY);
 	}
+	AQUA_LOG(Literal("OpenGL is loaded"));
 #endif // AQUA_OPENGL_GRAPHICS_API
 
 	EventSystem::Get()._SetWindowCallbacks(newMainWindow, m_info.m_mainWindowEventSet);

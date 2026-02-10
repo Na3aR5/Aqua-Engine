@@ -35,7 +35,9 @@ m_layerSystem(status) {
 	status.EmplaceValue();
 }
 
-aqua::Engine::~Engine() {}
+aqua::Engine::~Engine() {
+	g_Engine = nullptr;
+}
 
 aqua::Engine&       aqua::Engine::Get()      noexcept { return *g_Engine; }
 const aqua::Engine& aqua::Engine::GetConst() noexcept { return *g_Engine; }

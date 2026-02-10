@@ -64,6 +64,10 @@ namespace aqua {
 					return MemorySystem::GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
 				}
 
+				void DeallocateBytes(Pointer ptr, size_t bytes) const noexcept {
+					return MemorySystem::GetConstGlobalAllocator().Deallocate(ptr, bytes);
+				}
+
 				Proxy OnDataStructureCopy() const noexcept { return Proxy(); }
 			}; // class Proxy
 
@@ -76,6 +80,8 @@ namespace aqua {
 		friend struct GlobalAllocator::Proxy;
 
 	public:
+		~MemorySystem();
+
 		MemorySystem(const MemorySystem&) = delete;
 		MemorySystem(MemorySystem&&) noexcept = delete;
 

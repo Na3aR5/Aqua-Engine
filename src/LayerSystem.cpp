@@ -1,5 +1,7 @@
 #include <aqua/engine/LayerSystem.h>
 #include <aqua/engine/GraphicsAPI.h>
+
+#include <aqua/Logger.h>
 #include <aqua/Assert.h>
 
 void aqua::LayerSystem::ILayer::SetEvents(const EventSet& eventSet) noexcept {
@@ -34,6 +36,12 @@ aqua::LayerSystem::LayerSystem(Status& status) {
 		return;
 	}
 	g_LayerSystem = this;
+
+	AQUA_LOG(Literal("Engine layer system is initialized"));
+}
+
+aqua::LayerSystem::~LayerSystem() {
+	g_LayerSystem = nullptr;
 }
 
 aqua::LayerSystem& aqua::LayerSystem::Get() noexcept { return *g_LayerSystem; }

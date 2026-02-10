@@ -24,6 +24,7 @@ namespace aqua {
 			static constexpr uint16_t MAX_MESSAGE_LENGTH   = 512;
 			static constexpr uint8_t  MAX_FORMAT_ARGUMENTS = 8;
 			static constexpr uint8_t  MAX_PACKETS_AT_TIME  = 5;
+			static constexpr uint8_t  MAX_DELAYED_MESSAGES = 3;
 		} logger;
 	}; // class Config
 }
