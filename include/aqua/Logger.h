@@ -30,7 +30,7 @@ namespace aqua {
 			FATAL,
 			WARNING,
 			INFO,
-			ALLOC
+			MEMORY
 		}; // enum Level
 
 	public:
@@ -242,12 +242,12 @@ namespace aqua {
 #endif // AQUA_BUILD_TYPE_ENABLE_LOG_INFO
 
 #if AQUA_BUILD_TYPE_ENABLE_LOG_ALLOCATIONS
-	#define AQUA_LOG_ALLOC(format, ...) \
-		aqua::Logger::LogFormat(aqua::Logger::Level::ALLOC, format, __VA_ARGS__)
+	#define AQUA_LOG_MEMORY(format, ...) \
+		aqua::Logger::LogFormat(aqua::Logger::Level::MEMORY, format, __VA_ARGS__)
 
-	#define AQUA_LOG_ALLOC_IF(condition, format, ...) \
+	#define AQUA_LOG_MEMORY_IF(condition, format, ...) \
 		if (condition) {					     \
-			AQUA_LOG_ALLOC(format, __VA_ARGS__); \
+			AQUA_LOG_MEMORY(format, __VA_ARGS__); \
 		}
 #endif // AQUA_BUILD_TYPE_ENABLE_LOG_ALLOCATIONS
 

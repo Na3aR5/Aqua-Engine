@@ -13,9 +13,9 @@ namespace aqua {
 		using AllocatorType  = Allocator;
 
 		using ValueType		 = T;
-		using Pointer		 = ValueType*;
+		using Pointer		 = typename AllocatorType::Pointer;
 		using Reference	     = ValueType&;
-		using ConstPointer	 = const ValueType*;
+		using ConstPointer	 = const Pointer;
 		using ConstReference = const ValueType&;
 
 		using Iterator		       = Pointer;

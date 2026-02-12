@@ -13,4 +13,6 @@
 	#define AQUA_DEBUG_BREAK
 #endif // AQUA_DEBUG
 
+#define AQUA_DEBUG_CRASH_REPORT_AFTER_LOG std::abort()
+
 #endif // !AQUA_DEBUG_HEADER

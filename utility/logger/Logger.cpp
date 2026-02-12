@@ -31,7 +31,7 @@ int main() {
 		}
 		int logLevel = (int)message[0];
 
-		int offset;
+		int offset = 1;
 		switch (logLevel) {
 			case 0: // FATAL
 				SetConsoleColor(FOREGROUND_RED | FOREGROUND_INTENSITY);
@@ -54,7 +54,7 @@ int main() {
 			case 3: // Memory allocation / deallocation
 				SetConsoleColor(FOREGROUND_GREEN | FOREGROUND_INTENSITY);
 				offset = WriteTime(message);
-				std::cout << "[ALLOC] - ";
+				std::cout << "[MEMORY] - ";
 				break;
 		}
 		// write actual message

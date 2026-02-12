@@ -54,12 +54,12 @@ namespace aqua {
 			);
 			AQUA_TRY(m_layers.EmplaceBack(std::move(layer.GetValue())), _);
 
-			ILayer* layerPtr = m_layers.Last().GetPtr();
+			UniqueDataPtr<ILayer> layerPtr = m_layers.Last().GetPtr();
 			layerPtr->SetEvents(eventSet);
 
 			return LayerHandle<LayerType>(
 				static_cast<unsigned int>(m_layers.GetSize() - 1),
-				m_layers.Last().GetPtr()
+				layerPtr
 			);
 		}
 
@@ -104,12 +104,12 @@ namespace aqua {
 
 	private:
 		friend class LayerSystem;
-		LayerHandle(unsigned int index, LayerSystem::ILayer* layer) :
-			m_index(index), m_ptr(static_cast<LayerType*>(layer)) {}
+		LayerHandle(unsigned int index, UniqueDataPtr<LayerSystem::ILayer> layer) :
+			m_index(index), m_ptr(layer) {}
 
 	private:
 		unsigned int m_index;
-		LayerType*   m_ptr;
+		UniqueDataPtr<LayerSystem::ILayer> m_ptr;
 	}; // class LayerHandle
 } // namespace aqua
 

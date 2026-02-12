@@ -261,11 +261,11 @@ namespace aqua {
 		bool operator==(nullptr_t) const noexcept { return m_pair.value == nullptr; }
 		bool operator!=(nullptr_t) const noexcept { return m_pair.value != nullptr; }
 
-		Reference	   operator*()		 { return *m_pair.value; }
+		Reference      operator*()       { return *m_pair.value; }
 		ConstReference operator*() const { return *m_pair.value; }
 
-		Pointer      operator->()		noexcept { return m_pair.value; }
-		ConstPointer operator->() const noexcept { return m_pair.value; }
+		Pointer		  operator->()		 noexcept { return m_pair.value; }
+		const Pointer operator->() const noexcept { return m_pair.value; }
 
 	public:
 		AllocatorType&		 GetAllocator() noexcept	   { return m_pair.GetAllocator(); }
@@ -594,6 +594,9 @@ namespace aqua {
 	private:
 		T* m_ptr = nullptr;
 	}; // class DataObserver
+
+	template <typename T>
+	using UniqueDataPtr = typename UniqueData<T>::Pointer;
 } // namespace aqua
 
 #endif // !AQUA_UTILITY_MEMORY_HEADER
