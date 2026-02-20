@@ -6,14 +6,15 @@ namespace {
 }
 
 aqua::Engine::Engine(const EngineInfo& info, Status& status) noexcept :
-m_config(),
+m_config(info),
 m_info(info),
 m_state(State::CRASHED), // temporary
 m_memorySystem(status),
 m_logger(m_config, status),
-m_windowSystem(m_info.windowSystem, status),
 m_eventSystem(status),
-m_layerSystem(status) {
+m_windowSystem(m_info.windowSystem, status),
+m_layerSystem(status), 
+m_RHI(m_config, m_info.renderAPI, status) {
 	AQUA_ASSERT(g_Engine == nullptr, Literal("Attempt to create another instance of Engine"));
 
 	if (g_Engine != nullptr) {
@@ -48,11 +49,11 @@ void aqua::Engine::StopMainLoopRequest() noexcept {
 
 aqua::Status aqua::Engine::MainLoop() {
 	if (m_state == State::CRASHED) {
-		return Unexpected<Error>(Error::ATTEMPT_TO_START_CRASHED_ENGINE);
+		return Error::ATTEMPT_TO_START_CRASHED_ENGINE;
 	}
 	if (m_state == State::STARTED) {
 		AQUA_LOG_WARNING(Literal("Attempt to start already started engine"));
-		return Unexpected<Error>(Error::ATTEMPT_TO_START_ALREADY_STARTED_ENGINE);
+		return Error::ATTEMPT_TO_START_ALREADY_STARTED_ENGINE;
 	}
 
 	m_state = State::STARTED;

@@ -4,6 +4,7 @@
 #include <aqua/Build.h>
 #include <aqua/Error.h>
 #include <aqua/Assert.h>
+#include <aqua/engine/Defines.h>
 #include <aqua/engine/ForwardSystems.h>
 
 #include <new>
@@ -13,8 +14,19 @@ namespace aqua {
 #if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 	namespace _memory {
 		struct _Counter {
-			bool   alive = true;
+			uint32_t info = 0;
 			size_t references = 0;
+
+			void SetAlive(bool alive) noexcept {
+				info &= ~1;
+				info |= (uint32_t)alive;
+			}
+			void SetAllocated() noexcept {
+				info &= ~2;
+				info |= 2;
+			}
+			bool IsAlive() const noexcept { return info & 1; }
+			bool IsAllocated() const noexcept { return info & 2; }
 		};
 
 		template <typename T>
@@ -33,9 +45,7 @@ namespace aqua {
 			DebugPointerBase() noexcept = default;
 
 			DebugPointerBase(const DebugPointerBase& other) noexcept : m_counter(other.m_counter) {
-				if (m_counter != nullptr && m_counter->references > 0) {
-					++m_counter->references;
-				}
+				_IncrementCounter();
 			}
 
 			DebugPointerBase(DebugPointerBase&& other) noexcept : m_counter(other.m_counter) {
@@ -52,13 +62,19 @@ namespace aqua {
 					--m_counter->references;
 					return;
 				}
-				if (m_counter != nullptr && m_counter->alive && m_counter->references == 1) {
+				if (m_counter != nullptr && m_counter->IsAllocated() && m_counter->IsAlive() && m_counter->references == 1) {
 					AQUA_ASSERT(false, Literal("Memory leak"));
 					return;
 				}
 				if (m_counter != nullptr) {
 					MemorySystem::BootstrapAllocator().Deallocate(m_counter, sizeof(_Counter));
 					m_counter = nullptr;
+				}
+			}
+
+			void _IncrementCounter() noexcept {
+				if (m_counter != nullptr && m_counter->IsAllocated() && m_counter->references > 0) {
+					++m_counter->references;
 				}
 			}
 
@@ -88,12 +104,16 @@ namespace aqua {
 
 		DebugPointer(nullptr_t) noexcept : BaseType(), m_ptr(nullptr) {}
 
-		explicit DebugPointer(Pointer ptr) noexcept : BaseType(), m_ptr(ptr) {
+		explicit DebugPointer(Pointer ptr, bool isAllocated = true) noexcept : BaseType(), m_ptr(ptr) {
 			if (m_ptr == nullptr) {
 				return;
 			}
 			this->m_counter = this->_AllocateCounter();
-			this->m_counter->references = 1;
+			if (isAllocated) {
+				this->m_counter->references = 1;
+				this->m_counter->SetAllocated();
+				this->m_counter->SetAlive(true);
+			}
 		}
 
 		explicit DebugPointer(Pointer ptr, _memory::_Counter* counter) noexcept : BaseType(), m_ptr(ptr) {
@@ -101,15 +121,14 @@ namespace aqua {
 				return;
 			}
 			this->m_counter = counter;
-			if (this->m_counter != nullptr && this->m_counter->references > 0) {
-				++this->m_counter->references;
-			}
+			this->_IncrementCounter();
 		}
 
 		template <typename U>
 		DebugPointer(const DebugPointer<U>& other) noexcept requires(std::is_base_of_v<T, U>) :
 		BaseType(), m_ptr(other.GetPtr()) {
 			this->m_counter = other.GetCounter();
+			this->_IncrementCounter();
 		}
 
 		template <typename U>
@@ -126,10 +145,8 @@ namespace aqua {
 			this->_Destroy();
 			m_ptr = other.m_ptr;
 			this->m_counter = other.m_counter;
+			this->_IncrementCounter();
 
-			if (this->m_counter != nullptr && this->m_counter->references > 0) {
-				++this->m_counter->references;
-			}
 			return *this;
 		}
 
@@ -148,10 +165,8 @@ namespace aqua {
 			this->_Destroy();
 			m_ptr = other.GetPtr();
 			this->m_counter = other.GetCounter();
+			this->_IncrementCounter();
 
-			if (this->m_counter != nullptr && this->m_counter->references > 0) {
-				++this->m_counter->references;
-			}
 			return *this;
 		}
 
@@ -186,14 +201,32 @@ namespace aqua {
 		}
 
 	public:
-		Reference      operator*()       { return *m_ptr; }
-		ConstReference operator*() const { return *m_ptr; }
+		Reference operator*() {
+			CheckAccess();
+			return *m_ptr;
+		}
+		ConstReference operator*() const {
+			CheckAccess();
+			return *m_ptr;
+		}
 
-		Pointer      operator->()       noexcept { return m_ptr; }
-		ConstPointer operator->() const noexcept { return m_ptr; }
+		Pointer operator->() noexcept {
+			CheckAccess();
+			return m_ptr;
+		}
+		ConstPointer operator->() const noexcept {
+			CheckAccess();
+			return m_ptr;
+		}
 
-		Reference	   operator[](ptrdiff_t index)		 { return m_ptr[index]; }
-		ConstReference operator[](ptrdiff_t index) const { return m_ptr[index]; }
+		Reference operator[](ptrdiff_t index) {
+			CheckAccess();
+			return m_ptr[index];
+		}
+		ConstReference operator[](ptrdiff_t index) const {
+			CheckAccess();
+			return m_ptr[index];
+		}
 
 		DebugPointer& operator++() noexcept { ++m_ptr; return *this; }
 		DebugPointer& operator--() noexcept { --m_ptr; return *this; }
@@ -225,6 +258,8 @@ namespace aqua {
 
 		bool operator==(const DebugPointer& other) const noexcept { return m_ptr == other.m_ptr; }
 		bool operator!=(const DebugPointer& other) const noexcept { return m_ptr != other.m_ptr; }
+		bool operator==(const Pointer ptr) const noexcept { return m_ptr == ptr; }
+		bool operator!=(const Pointer ptr) const noexcept { return m_ptr != ptr; }
 
 		bool operator==(nullptr_t) const noexcept { return m_ptr == nullptr; }
 		bool operator!=(nullptr_t) const noexcept { return m_ptr != nullptr; }
@@ -234,13 +269,29 @@ namespace aqua {
 		bool operator>=(const DebugPointer& other) const noexcept { return m_ptr >= other.m_ptr; }
 		bool operator<=(const DebugPointer& other) const noexcept { return m_ptr <= other.m_ptr; }
 
+		bool operator>(const Pointer ptr)  const noexcept { return m_ptr > ptr; }
+		bool operator<(const Pointer ptr)  const noexcept { return m_ptr < ptr; }
+		bool operator>=(const Pointer ptr) const noexcept { return m_ptr >= ptr; }
+		bool operator<=(const Pointer ptr) const noexcept { return m_ptr <= ptr; }
+
 	public:
-		T* GetPtr() const noexcept { return m_ptr; }
+		Pointer GetPtr() const noexcept { return m_ptr; }
 		_memory::_Counter* GetCounter() const noexcept { return this->m_counter; }
 
 		void Forget() noexcept {
 			this->m_counter = nullptr;
 			m_ptr = nullptr;
+		}
+
+		void CheckAccess() const noexcept {
+			if (this->m_counter == nullptr || (this->m_counter->IsAllocated() && !this->m_counter->IsAlive())) {
+				if (m_ptr == nullptr) {
+					AQUA_ASSERT(false, Literal("Segmentation fault: dereferencing nullptr"));
+				}
+				if (this->m_counter && this->m_counter->IsAllocated()) {
+					AQUA_ASSERT(false, Literal("Segmentation fault: access violation"));
+				}
+			}
 		}
 
 	private:
@@ -268,12 +319,17 @@ namespace aqua {
 
 		DebugPointer(nullptr_t) noexcept : BaseType(), m_ptr(nullptr) {}
 
-		explicit DebugPointer(Pointer ptr) noexcept : BaseType(), m_ptr(ptr) {
+		explicit DebugPointer(Pointer ptr, bool isAllocated = true) noexcept : BaseType(), m_ptr(ptr) {
 			if (m_ptr == nullptr) {
 				return;
 			}
 			m_counter = this->_AllocateCounter();
-			m_counter->references = 1;
+			if (isAllocated) {
+				m_counter->references = 1;
+				m_counter->SetAllocated();
+				m_counter->SetAlive(true);
+				return;
+			}
 		}
 
 		explicit DebugPointer(Pointer ptr, _memory::_Counter* counter) noexcept : BaseType(), m_ptr(ptr) {
@@ -281,9 +337,7 @@ namespace aqua {
 				return;
 			}
 			m_counter = counter;
-			if (m_counter != nullptr && m_counter->references > 0) {
-				++m_counter->references;
-			}
+			this->_IncrementCounter();
 		}
 
 		~DebugPointer() { this->_Destroy(); }
@@ -293,10 +347,8 @@ namespace aqua {
 			this->_Destroy();
 			m_ptr = other.m_ptr;
 			m_counter = other.m_counter;
+			this->_IncrementCounter();
 
-			if (m_counter != nullptr && m_counter->references > 0) {
-				++m_counter->references;
-			}
 			return *this;
 		}
 
@@ -335,6 +387,8 @@ namespace aqua {
 	public:
 		bool operator==(const DebugPointer& other) const noexcept { return m_ptr == other.m_ptr; }
 		bool operator!=(const DebugPointer& other) const noexcept { return m_ptr != other.m_ptr; }
+		bool operator==(const Pointer ptr) const noexcept { return m_ptr == ptr; }
+		bool operator!=(const Pointer ptr) const noexcept { return m_ptr != ptr; }
 
 		bool operator==(nullptr_t) const noexcept { return m_ptr == nullptr; }
 		bool operator!=(nullptr_t) const noexcept { return m_ptr != nullptr; }
@@ -343,6 +397,11 @@ namespace aqua {
 		bool operator<(const DebugPointer& other)  const noexcept { return m_ptr < other.m_ptr; }
 		bool operator>=(const DebugPointer& other) const noexcept { return m_ptr >= other.m_ptr; }
 		bool operator<=(const DebugPointer& other) const noexcept { return m_ptr <= other.m_ptr; }
+
+		bool operator>(const Pointer ptr)  const noexcept { return m_ptr > ptr; }
+		bool operator<(const Pointer ptr)  const noexcept { return m_ptr < ptr; }
+		bool operator>=(const Pointer ptr) const noexcept { return m_ptr >= ptr; }
+		bool operator<=(const Pointer ptr) const noexcept { return m_ptr <= ptr; }
 
 	public:
 		_memory::_Counter* GetCounter() const noexcept { return m_counter; }
@@ -363,8 +422,14 @@ namespace aqua {
 		friend class DebugPointer;
 
 		using VoidPointer = DebugPointer<void>;
+
+		template <typename T>
+		using AllocatorPointer = DebugPointer<T>;
 #else
 		using VoidPointer = void*;
+
+		template <typename T>
+		using AllocatorPointer = T*;
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
 	public:
@@ -375,11 +440,7 @@ namespace aqua {
 			template <typename T>
 			struct Proxy {
 			public:
-#if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
-				using Pointer = DebugPointer<T>;
-#else
-				using Pointer = T*;
-#endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
+				using Pointer = typename MemorySystem::template AllocatorPointer<T>;
 
 				template <typename U>
 				struct Rebind {
@@ -417,15 +478,15 @@ namespace aqua {
 			public:
 				Pointer Allocate(size_t count) const noexcept {
 					return static_cast<Pointer>(
-						MemorySystem::GetConstGlobalAllocator().Allocate(sizeof(T) * count));
+						MemorySystem::_GetConstGlobalAllocator().Allocate(sizeof(T) * count));
 				}
 
 				void Deallocate(Pointer ptr, size_t count) const noexcept {
-					return MemorySystem::GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
+					return MemorySystem::_GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
 				}
 
 				void DeallocateBytes(Pointer ptr, size_t bytes) const noexcept {
-					return MemorySystem::GetConstGlobalAllocator().Deallocate(ptr, bytes);
+					return MemorySystem::_GetConstGlobalAllocator().Deallocate(ptr, bytes);
 				}
 
 				Proxy OnDataStructureCopy() const noexcept { return Proxy(); }
@@ -436,8 +497,86 @@ namespace aqua {
 			void Deallocate(VoidPointer ptr, size_t bytes) const noexcept;
 		}; // class GlobalAllocator
 
+		// Store first 'InlineSize' objects inline
+		// If object count > 'InlineSize' store in allocated memory
+		template <typename T, size_t InlineSize>
+		class InlineAllocator {
+		public:
+			static_assert(InlineSize > 0, "aqua::MemorySystem::InlineAllocator - InlineSize must be > 0");
+
+		public:
+			using Pointer = typename MemorySystem::template AllocatorPointer<T>;
+
+			template <typename U>
+			struct Rebind {
+				using AllocatorType = InlineAllocator<U, InlineSize>;
+			};
+
+		public:
+			InlineAllocator()			            noexcept = default;
+			InlineAllocator(const InlineAllocator&) noexcept = default;
+			InlineAllocator(InlineAllocator&&)      noexcept = default;
+
+			InlineAllocator& operator=(const InlineAllocator&) noexcept = default;
+			InlineAllocator& operator=(InlineAllocator&&)	   noexcept = default;
+
+			template <typename U>
+			InlineAllocator(const InlineAllocator<U, InlineSize>&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {};
+
+			template <typename U>
+			InlineAllocator(InlineAllocator<U, InlineSize>&&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {};
+
+			template <typename U>
+			InlineAllocator& operator=(const InlineAllocator<U, InlineSize>&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {
+				return *this;
+			}
+
+			template <typename U>
+			InlineAllocator& operator=(InlineAllocator<U, InlineSize>&&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {
+				return *this;
+			}
+
+		public:
+			Pointer Allocate(size_t count) const noexcept {
+				if (m_inlineUsed + count > InlineSize) {
+					return static_cast<Pointer>(
+						MemorySystem::_GetConstGlobalAllocator().Allocate(sizeof(T) * count));
+				}
+#if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
+				return Pointer((T*)m_inlineStorage + m_inlineUsed, false);
+#else
+				return (T*)m_inlineStorage + m_inlineUsed;
+#endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
+			}
+
+			void Deallocate(Pointer ptr, size_t count) const noexcept {
+				if (!(ptr >= (T*)m_inlineStorage && ptr < ((T*)m_inlineStorage + InlineSize))) {
+					MemorySystem::_GetConstGlobalAllocator().Deallocate(ptr, sizeof(T) * count);
+				}
+			}
+
+			void DeallocateBytes(Pointer ptr, size_t bytes) const noexcept {
+				if (!(ptr >= (T*)m_inlineStorage && ptr < ((T*)m_inlineStorage + InlineSize))) {
+					MemorySystem::_GetConstGlobalAllocator().Deallocate(ptr, bytes);
+				}
+			}
+
+			InlineAllocator OnDataStructureCopy() const noexcept { return InlineAllocator(); }
+
+		private:
+			size_t m_inlineUsed = 0;
+			alignas(T) std::byte m_inlineStorage[sizeof(T) * InlineSize] = {};
+		}; // class InlineAllocator
+
 		template <typename T>
 		friend struct GlobalAllocator::Proxy;
+
+		template <typename T, size_t InlineSize>
+		friend class InlineAllocator;
 
 	public:
 		~MemorySystem();
@@ -449,8 +588,13 @@ namespace aqua {
 		MemorySystem& operator=(MemorySystem&&) noexcept = delete;
 
 	private:
-		static MemorySystem::GlobalAllocator&       GetGlobalAllocator()	  noexcept;
-		static const MemorySystem::GlobalAllocator& GetConstGlobalAllocator() noexcept;
+		static MemorySystem::GlobalAllocator&       _GetGlobalAllocator()	  noexcept;
+		static const MemorySystem::GlobalAllocator& _GetConstGlobalAllocator() noexcept;
+
+#if AQUA_SUPPORT_VULKAN_RENDER_API
+		friend class VulkanAPI;
+		static void* _GetVulkanAllocationCallbacks() noexcept;
+#endif // AQUA_SUPPORT_VULKAN_RENDER_API
 
 	private:
 		// Nothrow operator new/delete

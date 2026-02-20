@@ -11,7 +11,12 @@ namespace aqua {
 		constexpr StringLiteral(const char(&string)[Size]) noexcept : m_string(string) {}
 
 	public:
-		static constexpr size_t GetSize() noexcept { return Size - 1; }
+		char operator[](size_t index) const { return m_string[index]; }
+
+	public:
+		static constexpr size_t GetSize()   noexcept { return Size - 1; }
+		static constexpr size_t GetLength() noexcept { return Size - 1; }
+		const char* GetPtr() const noexcept { return m_string; }
 
 	private:
 		const char(&m_string)[Size];

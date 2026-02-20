@@ -4,23 +4,11 @@
 #include <aqua/engine/MemorySystem.h>
 #include <aqua/engine/WindowSystem.h>
 #include <aqua/engine/LayerSystem.h>
+#include <aqua/engine/RenderHardwareInterface.h>
+
 #include <aqua/Logger.h>
 
 namespace aqua {
-	struct EngineInfo {
-	public:
-		enum Flag : uint64_t {
-			WINDOW_FULLSCREEN_BIT = 0x1
-		}; // enum Flag
-
-	public:
-		// Required fields
-		WindowSystemInfo windowSystem{};
-
-		// Optional fields
-		uint64_t flags = 0;
-	}; // struct EngineInfo
-
 	// Engine main class
 	class Engine {
 	public:
@@ -33,6 +21,13 @@ namespace aqua {
 
 	public:
 		Engine(const EngineInfo& info, Status& status) noexcept;
+		
+		Engine(const Engine&) = delete;
+		Engine(Engine&&) noexcept = delete;
+
+		Engine& operator=(const Engine&) = delete;
+		Engine& operator=(Engine&&) noexcept = delete;
+
 		~Engine();
 
 	public:
@@ -51,9 +46,10 @@ namespace aqua {
 
 		MemorySystem m_memorySystem;
 		Logger	     m_logger;
-		WindowSystem m_windowSystem;
 		EventSystem  m_eventSystem;
+		WindowSystem m_windowSystem;
 		LayerSystem  m_layerSystem;
+		RHI          m_RHI;
 	}; // class Engine
 } // namespace aqua
 

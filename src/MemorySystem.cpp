@@ -25,12 +25,12 @@ void aqua::MemorySystem::GlobalAllocator::Deallocate(VoidPointer ptr, size_t byt
 #if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 	if (ptr != nullptr) {
 		auto* counter = ptr.GetCounter();
-		if (counter != nullptr && !counter->alive && counter->references > 0) {
-			AQUA_ASSERT(false, Literal("Call deallocate on deallocated memory"));
+		if (counter != nullptr && !counter->IsAlive()) {
+			AQUA_ASSERT(false, Literal("Call deallocate on unallocated memory"));
 			return;
 		}
 		if (counter != nullptr) {
-			counter->alive = false;
+			counter->SetAlive(false);
 		}
 	}
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
@@ -42,10 +42,7 @@ void aqua::MemorySystem::GlobalAllocator::Deallocate(VoidPointer ptr, size_t byt
 aqua::MemorySystem::MemorySystem(Status& status) {
 	AQUA_ASSERT(g_MemorySystem == nullptr, Literal("Attempt to create another MemorySystem instance"));
 
-	if (!status.IsSuccess()) {
-		return;
-	}
-	if (g_MemorySystem != nullptr) {
+	if (!status.IsSuccess() || g_MemorySystem != nullptr) {
 		return;
 	}
 	g_MemorySystem = this;
@@ -57,10 +54,37 @@ aqua::MemorySystem::~MemorySystem() {
 	g_MemorySystem = nullptr;
 }
 
-aqua::MemorySystem::GlobalAllocator& aqua::MemorySystem::GetGlobalAllocator() noexcept {
+aqua::MemorySystem::GlobalAllocator& aqua::MemorySystem::_GetGlobalAllocator() noexcept {
 	return g_MemorySystem->m_globalAllocator;
 }
 
-const aqua::MemorySystem::GlobalAllocator& aqua::MemorySystem::GetConstGlobalAllocator() noexcept {
+const aqua::MemorySystem::GlobalAllocator& aqua::MemorySystem::_GetConstGlobalAllocator() noexcept {
 	return g_MemorySystem->m_globalAllocator;
 }
+
+// -------------------------------------------------- Vulkan --------------------------------------------------
+
+#if AQUA_SUPPORT_VULKAN_RENDER_API
+#include <vulkan/vulkan_core.h>
+
+namespace {
+	VkAllocationCallbacks g_VulkanAllocatorCallbacks = {
+		.pfnAllocation = [](void* userData, size_t bytes, size_t alignment, VkSystemAllocationScope) {
+			return _aligned_malloc(bytes, alignment);
+		},
+		.pfnReallocation = [](void* userData, void* current, size_t bytes, size_t alignment, VkSystemAllocationScope) {
+			return _aligned_realloc(current, bytes, alignment);
+		},
+		.pfnFree = [](void* userData, void* ptr) {
+			_aligned_free(ptr);
+		},
+		.pfnInternalAllocation = nullptr,
+		.pfnInternalFree       = nullptr
+	};
+}
+
+void* aqua::MemorySystem::_GetVulkanAllocationCallbacks() noexcept {
+	return &g_VulkanAllocatorCallbacks;
+}
+
+#endif // AQUA_SUPPORT_VULKAN_RENDER_API

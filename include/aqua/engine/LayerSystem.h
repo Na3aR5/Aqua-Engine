@@ -37,6 +37,12 @@ namespace aqua {
 	public:
 		~LayerSystem();
 
+		LayerSystem(const LayerSystem&) = delete;
+		LayerSystem(LayerSystem&&) noexcept = delete;
+
+		LayerSystem& operator=(const LayerSystem&) = delete;
+		LayerSystem& operator=(LayerSystem&&) noexcept = delete;
+
 	public:
 		static LayerSystem& Get() noexcept;
 		static const LayerSystem& GetConst() noexcept;
@@ -60,18 +66,6 @@ namespace aqua {
 			return LayerHandle<LayerType>(
 				static_cast<unsigned int>(m_layers.GetSize() - 1),
 				layerPtr
-			);
-		}
-
-		// Get layer handle by index
-		template <typename LayerType>
-		Expected<LayerHandle<LayerType>, Error> GetLayerHandle(unsigned int index) const noexcept {
-			if (index >= m_layers.GetSize()) {
-				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
-			}
-			return LayerHandle<LayerType>(
-				index,
-				m_layers.Last().GetPtr()
 			);
 		}
 

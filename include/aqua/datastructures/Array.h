@@ -145,14 +145,13 @@ namespace aqua {
 	// 'Add' methods
 	public:
 		// Construct object at the end by perfect forwarding construct arguments 'args'
-		// Return iterator to the new end
 		template <typename ... Types>
-		[[nodiscard]] Expected<Iterator, Error> EmplaceBack(Types&& ... args) noexcept
+		[[nodiscard]] Status EmplaceBack(Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
 			AQUA_TRY(Reserve(1), _);
 
 			new (m_pair.value.last++) ValueType(std::forward<Types>(args)...);
-			return m_pair.value.last;
+			return Success{};
 		}
 
 		// Push value at the end by perfect forwarding construct arguments,
@@ -164,22 +163,53 @@ namespace aqua {
 		}
 
 		// Copy 'value' to the end
-		[[nodiscard]] Expected<Iterator, Error> Push(ConstReference value) noexcept {
+		[[nodiscard]] Status Push(ConstReference value) noexcept {
 			return EmplaceBack(value);
 		}
 
 		// Move 'value' to the end
-		[[nodiscard]] Expected<Iterator, Error> Push(ValueType&& value) noexcept {
+		[[nodiscard]] Status Push(ValueType&& value) noexcept {
 			return EmplaceBack(std::move(value));
 		}
 
 		// Copy 'count' times 'value' object to the end
-		[[nodiscard]] Expected<Iterator, Error> Push(size_t count, ConstReference value) noexcept
+		[[nodiscard]] Status Push(size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			AQUA_TRY(Reserve(count), _);
 
 			std::fill(m_pair.value.last, m_pair.value.first + (_GetSizeUnchecked() + count), value);
+			m_pair.value.last += count;
+			
 			return Success{};
+		}
+
+		// Copy range ['rangeBegin', 'rangeEnd') of elements into the end
+		template <std::forward_iterator Iterator>
+		[[nodiscard]] Status Push(Iterator rangeBegin, Iterator rangeEnd) noexcept
+		requires(std::is_nothrow_assignable_v<ValueType, std::iter_value_t<Iterator>> ||
+				(std::is_nothrow_convertible_v<std::iter_value_t<Iterator>, ValueType> &&
+				 std::is_nothrow_copy_assignable_v<ValueType>)) {
+			size_t rangeSize = std::distance(rangeBegin, rangeEnd);
+
+			AQUA_TRY(Reserve(rangeSize), _);
+
+			_CopyIteratorRange(m_pair.value.last, rangeBegin, rangeEnd);
+			m_pair.value.last += rangeSize;
+
+			return Success{};
+		}
+
+		// Copy range ['rangeBegin', 'rangeEnd') of elements into the end
+		// assuming array.capacity >= array.size + 'rangeSize'
+		template <std::forward_iterator Iterator>
+		void PushUnchecked(Iterator rangeBegin, Iterator rangeEnd) noexcept
+		requires(std::is_nothrow_assignable_v<ValueType, std::iter_value_t<Iterator>> ||
+				(std::is_nothrow_convertible_v<std::iter_value_t<Iterator>, ValueType> &&
+				 std::is_nothrow_copy_assignable_v<ValueType>)) {
+			size_t rangeSize = std::distance(rangeBegin, rangeEnd);
+			
+			_CopyIteratorRange(m_pair.value.last, rangeBegin, rangeEnd);
+			m_pair.value.last += rangeSize;
 		}
 
 		// Copy 'value' to the end assuming array.capacity > array.size
@@ -197,7 +227,7 @@ namespace aqua {
 		[[nodiscard]] Expected<Iterator, Error> Emplace(ConstIterator where, Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Error::ITERATOR_OR_INDEX_OUT_OF_RANGE;
 			}
 			if (where == cend()) {
 				return EmplaceBack(std::forward<Types>(args)...);
@@ -227,7 +257,7 @@ namespace aqua {
 		ConstIterator where, size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			if (!_IsValidIterator(where)) {
-				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return Error::ITERATOR_OR_INDEX_OUT_OF_RANGE;
 			}
 			if (count == 0) {
 				return where == nullptr ? nullptr : m_pair.value.first + (where - cbegin());
@@ -316,6 +346,9 @@ namespace aqua {
 			return m_pair.value.first == nullptr ? 0 : m_pair.value.end - m_pair.value.first;
 		}
 
+		Pointer      GetPtr()		noexcept { return m_pair.value.first; }
+		ConstPointer GetPtr() const noexcept { return m_pair.value.first; }
+
 		Reference      First()       { return *m_pair.value.first; }
 		ConstReference First() const { return *m_pair.value.first; }
 
@@ -345,7 +378,7 @@ namespace aqua {
 			if constexpr (noexcept(m_pair.GetAllocator().Allocate(count))) {
 				Pointer ptr = m_pair.GetAllocator().Allocate(count);
 				if (ptr == nullptr) {
-					return Unexpected<Error>(Error::FAILED_TO_ALLOCATE_MEMORY);
+					return Error::FAILED_TO_ALLOCATE_MEMORY;
 				}
 				return ptr;
 			}
@@ -353,7 +386,7 @@ namespace aqua {
 				try {
 					return m_pair.GetAllocator().Allocate(count);
 				} catch (...) {
-					return Unexpected<Error>(Error::FAILED_TO_ALLOCATE_MEMORY);
+					return Error::FAILED_TO_ALLOCATE_MEMORY;
 				}
 			}
 		}
@@ -521,6 +554,19 @@ namespace aqua {
 			}
 		}
 
+		template <typename Iterator>
+		void _CopyIteratorRange(Pointer dest, Iterator rangeBegin, Iterator rangeEnd) noexcept {
+			while (rangeBegin != rangeEnd) {
+				if constexpr (std::is_nothrow_assignable_v<ValueType, std::iter_value_t<Iterator>>) {
+					*dest = *rangeBegin;
+				}
+				else {
+					*dest = static_cast<ValueType>(*rangeBegin);
+				}
+				++dest, ++rangeBegin;
+			}
+		}
+
 		Expected<AllocatorType, Error> _CopyAllocatorFrom(const AllocatorType& other) const noexcept
 		requires(std::is_nothrow_move_constructible_v<AllocatorType>) {
 			if constexpr (noexcept(other.OnDataStructureCopy())) {
@@ -530,7 +576,7 @@ namespace aqua {
 				try {
 					return Expected<AllocatorType, Error>(std::move(other.OnDataStructureCopy()));
 				} catch (...) {
-					return Unexpected<Error>(Error::DATA_STRUCTURE_FAILED_TO_COPY_ALLOCATOR);
+					return Error::DATA_STRUCTURE_FAILED_TO_COPY_ALLOCATOR;
 				}
 			}
 		}

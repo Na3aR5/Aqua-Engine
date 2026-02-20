@@ -11,6 +11,12 @@ namespace aqua {
 	public:
 		~EventSystem();
 
+		EventSystem(const EventSystem&) = delete;
+		EventSystem(EventSystem&&) noexcept = delete;
+
+		EventSystem& operator=(const EventSystem&) = delete;
+		EventSystem& operator=(EventSystem&&) noexcept = delete;
+
 	public:
 		static EventSystem& Get() noexcept;
 		static const EventSystem& GetConst() noexcept;

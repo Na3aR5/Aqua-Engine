@@ -1,21 +1,21 @@
 #ifndef AQUA_WINDOW_SYSTEM_HEADER
 #define AQUA_WINDOW_SYSTEM_HEADER
 
-#include <aqua/engine/EventSystem.h>
+#include <aqua/Error.h>
+#include <aqua/engine/Defines.h>
 #include <aqua/math/Vector.h>
+#include <aqua/engine/ForwardSystems.h>
 
 namespace aqua {
-	struct WindowSystemInfo {
-		const char* mainWindowTitle = nullptr;
-		Vec2i       mainWindowSize{};
-
-		// Optional
-		EventSet    m_mainWindowEventSet{};
-	}; // struct WindowInfo
-
 	class WindowSystem {
 	public:
 		~WindowSystem();
+
+		WindowSystem(const WindowSystem&) = delete;
+		WindowSystem(WindowSystem&&) noexcept = delete;
+
+		WindowSystem& operator=(const WindowSystem&) = delete;
+		WindowSystem& operator=(WindowSystem&&) noexcept = delete;
 
 	private:
 		void _Terminate() noexcept;

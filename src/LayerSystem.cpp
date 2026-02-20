@@ -1,5 +1,4 @@
 #include <aqua/engine/LayerSystem.h>
-#include <aqua/engine/GraphicsAPI.h>
 
 #include <aqua/Logger.h>
 #include <aqua/Assert.h>
@@ -29,10 +28,7 @@ namespace {
 aqua::LayerSystem::LayerSystem(Status& status) {
 	AQUA_ASSERT(g_LayerSystem == nullptr, Literal("Attempt to create another LayerSystem instance"));
 
-	if (!status.IsSuccess()) {
-		return;
-	}
-	if (g_LayerSystem != nullptr) {
+	if (!status.IsSuccess() || g_LayerSystem != nullptr) {
 		return;
 	}
 	g_LayerSystem = this;
@@ -56,7 +52,7 @@ aqua::Status aqua::LayerSystem::_HandleEvents() noexcept {
 		for (UniqueData<ILayer>& layer : m_layers) {
 			if (layer->IsEventNeedToHandle(event)) {
 				if (!layer->OnEvent(event)) {
-					return Unexpected<Error>(Error::LAYER_FAILED_TO_HANDLE_EVENT);
+					return Error::LAYER_FAILED_TO_HANDLE_EVENT;
 				}
 				if (layer->IsCurrentEventBlocked()) {
 					break;
@@ -70,18 +66,16 @@ aqua::Status aqua::LayerSystem::_HandleEvents() noexcept {
 aqua::Status aqua::LayerSystem::_Update() noexcept {
 	for (UniqueData<ILayer>& layer : m_layers) {
 		if (!layer->OnUpdate()) {
-			return Unexpected<Error>(Error::LAYER_FAILED_TO_UPDATE);
+			return Error::LAYER_FAILED_TO_UPDATE;
 		}
 	}
 	return Success{};
 }
 
 aqua::Status aqua::LayerSystem::_Render() noexcept {
-	GraphicsAPI::Get().ClearColorBuffer();
-
 	for (UniqueData<ILayer>& layer : m_layers) {
 		if (!layer->OnRender()) {
-			return Unexpected<Error>(Error::LAYER_FAILED_TO_RENDER);
+			return Error::LAYER_FAILED_TO_RENDER;
 		}
 	}
 	return Success{};

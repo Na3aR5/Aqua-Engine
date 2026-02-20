@@ -55,10 +55,7 @@ const aqua::EventData& aqua::EventSystem::GetCurrentEventData() const noexcept {
 aqua::EventSystem::EventSystem(Status& status) {
 	AQUA_ASSERT(g_EventSystem == nullptr, Literal("Attempt to create another EventSystem instance"));
 
-	if (!status.IsSuccess()) {
-		return;
-	}
-	if (g_EventSystem != nullptr) {
+	if (!status.IsSuccess() || g_EventSystem != nullptr) {
 		return;
 	}
 	g_EventSystem = this;

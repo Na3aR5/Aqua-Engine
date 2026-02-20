@@ -183,6 +183,7 @@ namespace aqua {
 		size_t GetSize()   const noexcept { return m_size; }
 		size_t GetLength() const noexcept { return m_size; }
 
+		Pointer		 GetPtr()		noexcept { return m_buffer; }
 		ConstPointer GetPtr() const noexcept { return m_buffer; }
 
 		static constexpr size_t GetBufferSize() noexcept { return BufferSize; }
@@ -285,9 +286,9 @@ namespace aqua {
 			return true;
 		}
 
-		[[nodiscard]] Expected<bool, Error> Insert(size_t where, size_t count, ValueType value) noexcept {
+		bool Insert(size_t where, size_t count, ValueType value) noexcept {
 			if (where >= m_size) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return false;
 			}
 			if (count == 0) {
 				return true;
@@ -302,13 +303,13 @@ namespace aqua {
 			return true;
 		}
 
-		[[nodiscard]] Expected<bool, Error> Insert(size_t where, ValueType value) noexcept {
+		bool Insert(size_t where, ValueType value) noexcept {
 			return Insert(where, 1, value);
 		}
 
-		[[nodiscard]] Expected<bool, Error> Insert(size_t where, const StringBuffer& other) noexcept {
+		bool Insert(size_t where, const StringBuffer& other) noexcept {
 			if (where >= m_size) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return false;
 			}
 			if (other.m_size == 0) {
 				return true;
@@ -323,9 +324,9 @@ namespace aqua {
 			return true;
 		}
 
-		[[nodiscard]] Expected<bool, Error> Insert(size_t where, ConstPointer cstr) noexcept {
+		bool Insert(size_t where, ConstPointer cstr) noexcept {
 			if (where >= m_size) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return false;
 			}
 			size_t cstrSize;
 			if (cstr == nullptr || (cstrSize = this->_CStrLength(cstr)) == 0) {
@@ -342,10 +343,9 @@ namespace aqua {
 		}
 
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Expected<bool, Error> Insert(
-			size_t where, Iterator rangeBegin, Iterator rangeEnd) noexcept {
+		bool Insert(size_t where, Iterator rangeBegin, Iterator rangeEnd) noexcept {
 			if (where >= m_size) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return false;
 			}
 			size_t rangeSize = std::distance(rangeBegin, rangeEnd);
 			if (rangeSize == 0) {
@@ -374,11 +374,25 @@ namespace aqua {
 			m_buffer[m_size] = EOFchar;
 		}
 
-		Expected<bool, Error> Remove(size_t where, size_t count) noexcept {
+		bool Remove(size_t where, size_t count) noexcept {
 			if (where >= m_size) {
-				return Unexpected<Error>(Error::DATA_STRUCTURE_ITERATOR_OR_INDEX_OUT_OF_RANGE);
+				return false;
 			}
 			std::memcpy(m_buffer + where, m_buffer + (where + count), m_size - (where + count) + 1);
+			return true;
+		}
+
+		// Move EOF character into the 'size' index
+		// Notice: previous EOF character won't be moved
+		// This method is useful when you write in buffer directly, like: std::sprintf(strBuf.GetPtr(), ...)
+		// then you need to specify new size by calling this method
+		// Return false if 'size' is too large
+		bool SetSize(size_t size) noexcept {
+			if (size >= BufferSize) {
+				return false;
+			}
+			m_size = size;
+			m_buffer[size] = EOFchar;
 			return true;
 		}
 

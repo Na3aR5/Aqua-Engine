@@ -2,7 +2,7 @@
 #include <string>
 
 #if defined(WIN32) && WIN32
-#include <windows.h>
+	#include <windows.h>
 #endif
 
 static void SetConsoleColor(WORD color) {

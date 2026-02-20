@@ -274,7 +274,7 @@ namespace aqua {
 		Pointer	     GetPtr()		noexcept { return m_pair.value; }
 		ConstPointer GetPtr() const noexcept { return m_pair.value; }
 
-		bool HasData() const noexcept {
+		bool IsAlive() const noexcept {
 			return m_pair.value != nullptr;
 		}
 
@@ -476,7 +476,7 @@ namespace aqua {
 		Pointer		 GetPtr()		noexcept { return m_pair.value; }
 		ConstPointer GetPtr() const noexcept { return m_pair.value; }
 
-		bool HasValue() const noexcept {
+		bool IsAlive() const noexcept {
 			_CounterPointer counter = m_counterPair.value;
 			return counter != nullptr && counter->sharedCount > 0;
 		}
@@ -574,8 +574,8 @@ namespace aqua {
 		}
 
 	public:
-		bool IsExpired() const noexcept {
-			return m_counterPair.value == nullptr || m_counterPair.value->sharedCount == 0;
+		bool IsAlive() const noexcept {
+			return !(m_counterPair.value == nullptr || m_counterPair.value->sharedCount == 0);
 		}
 
 		T*		 GetPtr()	    noexcept { return m_ptr; }
