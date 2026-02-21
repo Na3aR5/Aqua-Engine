@@ -11,9 +11,9 @@ namespace aqua {
 	class EventSystem;
 	class LayerSystem;
 
-#if AQUA_VULKAN_GRAPHICS_API
+	class RenderHardwareInterface;
+
 	class VulkanAPI;
-#endif // AQUA_VULKAN_GRAPHICS_API
 } // namespace aqua
 
 #endif // !AQUA_FORWARD_SYSTEMS_HEADER

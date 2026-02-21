@@ -3,6 +3,7 @@
 
 #include <aqua/math/Vector.h>
 #include <aqua/engine/Event.h>
+#include <aqua/utility/StringLiteral.h>
 
 #include <cstdint>
 
@@ -46,6 +47,12 @@ namespace aqua {
 		const char* applicationName    = nullptr;
 		Version     applicationVersion = Version(1, 0, 0);
 	}; // struct EngineInfo
+
+	struct EngineInternalInfo {
+	public:
+		StringLiteralPointer name;
+		Version              version;
+	}; // struct EngineInternalInfo
 } // namespace aqua
 
 #endif // !AQUA_DEFINES_HEADER

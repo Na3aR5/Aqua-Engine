@@ -56,6 +56,12 @@ int main() {
 				offset = WriteTime(message);
 				std::cout << "[MEMORY] - ";
 				break;
+
+			case 4: // Debug info
+				SetConsoleColor(FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+				offset = WriteTime(message);
+				std::cout << "[DEBUG] - ";
+				break;
 		}
 		// write actual message
 		std::cout << (message.c_str() + offset) << '\n';

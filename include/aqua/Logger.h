@@ -30,7 +30,8 @@ namespace aqua {
 			FATAL,
 			WARNING,
 			INFO,
-			MEMORY
+			MEMORY,
+			DEBUG
 		}; // enum Level
 
 	public:
@@ -48,13 +49,13 @@ namespace aqua {
 
 		template <typename ... Types>
 		static void LogFormat(Level level, const String256& format, const Types& ... args) {
-			static_assert(sizeof...(args) <= Config::Logger::MAX_FORMAT_ARGUMENTS,
+			static_assert(sizeof...(args) <= Config::LoggerInfo::MAX_FORMAT_ARGUMENTS,
 				"aqua::Logger::LogFormat - too many arguments");
 
 			auto timePoint = std::chrono::system_clock::now();
 
 			if (s_Logger == nullptr) {
-				if (s_DelayedMessageCount < Config::Logger::MAX_DELAYED_MESSAGES) {
+				if (s_DelayedMessageCount < Config::LoggerInfo::MAX_DELAYED_MESSAGES) {
 					_Packet& packet = s_DelayedMessages[s_DelayedMessageCount++];
 					packet.timePoint = timePoint;
 					_CreatePacketInPlace(packet, format, level, args...);
@@ -70,14 +71,14 @@ namespace aqua {
 			size_t writeIndex = logger.m_writeIndex.load(std::memory_order_relaxed);
 			size_t readIndex = logger.m_readIndex.load(std::memory_order_acquire);
 
-			if (writeIndex - readIndex >= Config::Logger::MAX_PACKETS_AT_TIME) {
+			if (writeIndex - readIndex >= Config::LoggerInfo::MAX_PACKETS_AT_TIME) {
 				return; // log capacity overflow; drop log message
 			}
 #if AQUA_DEBUG
 			++logger.m_logMessagesWritten; // will be written later
 #endif // AQUA_DEBUG
 
-			_Packet& packet = logger.m_packetBuffer[writeIndex % Config::Logger::MAX_PACKETS_AT_TIME];
+			_Packet& packet = logger.m_packetBuffer[writeIndex % Config::LoggerInfo::MAX_PACKETS_AT_TIME];
 			packet.timePoint = timePoint;
 			_CreatePacketInPlace(packet, format, level, args...);
 
@@ -99,7 +100,7 @@ namespace aqua {
 		static void LogFormatSync(Level level, StringLiteral<Size> format, const Types& ... args) {
 			static_assert(Size <= String256::GetBufferSize() + 1,
 				"aqua::Logger::LogFormat - format string is too long");
-			static_assert(sizeof...(args) <= Config::Logger::MAX_FORMAT_ARGUMENTS,
+			static_assert(sizeof...(args) <= Config::LoggerInfo::MAX_FORMAT_ARGUMENTS,
 				"aqua::Logger::LogFormat - too many arguments");
 
 			auto timePoint = std::chrono::system_clock::now();
@@ -113,14 +114,14 @@ namespace aqua {
 			size_t writeIndex = logger.m_writeIndex.load(std::memory_order_relaxed);
 			size_t readIndex = logger.m_readIndex.load(std::memory_order_acquire);
 
-			if (writeIndex - readIndex >= Config::Logger::MAX_PACKETS_AT_TIME) {
+			if (writeIndex - readIndex >= Config::LoggerInfo::MAX_PACKETS_AT_TIME) {
 				return; // log capacity overflow; drop log message
 			}
 #if AQUA_DEBUG
 			++logger.m_logMessagesWritten; // will be written later
 #endif // AQUA_DEBUG
 
-			_Packet& packet = logger.m_packetBuffer[writeIndex % Config::Logger::MAX_PACKETS_AT_TIME];
+			_Packet& packet = logger.m_packetBuffer[writeIndex % Config::LoggerInfo::MAX_PACKETS_AT_TIME];
 			packet.timePoint = timePoint;
 			packet.level = (uint8_t)level;
 			_ForwardArgsInPacket(packet, args...);
@@ -170,7 +171,7 @@ namespace aqua {
 			uint8_t						  argCount = 0;
 			uint16_t					  argTypes = 0;
 			StringBuffer<char, 257, '\n'> formatString;
-			Argument					  args[Config::Logger::MAX_FORMAT_ARGUMENTS];
+			Argument					  args[Config::LoggerInfo::MAX_FORMAT_ARGUMENTS];
 		}; // struct _Packet
 
 		template <std::integral T>
@@ -261,8 +262,8 @@ namespace aqua {
 		size_t                     m_logMessagesWritten = 0;
 #endif // AQUA_DEBUG
 
-		_Packet					   m_packetBuffer[Config::Logger::MAX_PACKETS_AT_TIME];
-		char					   m_buffer[Config::Logger::MAX_MESSAGE_LENGTH + 1] = {};
+		_Packet					   m_packetBuffer[Config::LoggerInfo::MAX_PACKETS_AT_TIME];
+		char					   m_buffer[Config::LoggerInfo::MAX_MESSAGE_LENGTH + 1] = {};
 
 		std::atomic<size_t>		   m_writeIndex{ 0 };
 		std::atomic<size_t>		   m_readIndex{ 0 };
@@ -271,7 +272,7 @@ namespace aqua {
 
 		static Logger* s_Logger;
 		static uint8_t s_DelayedMessageCount;
-		static _Packet s_DelayedMessages[Config::Logger::MAX_DELAYED_MESSAGES];
+		static _Packet s_DelayedMessages[Config::LoggerInfo::MAX_DELAYED_MESSAGES];
 	}; // class Logger
 } // namespace aqua
 
@@ -318,5 +319,16 @@ namespace aqua {
 #else 
 	#define AQUA_LOG_VULKAN(format, ...)
 #endif // AQUA_BUILD_TYPE_ENABLE_LOG_VULKAN
+
+#if AQUA_DEBUG_ENABLE_LOG
+	#define AQUA_LOG_DEBUG(format, ...) \
+		aqua::Logger::LogFormat(aqua::Logger::Level::DEBUG, format, __VA_ARGS__)
+
+	#define AQUA_LOG_DEBUG_SYNC(format, ...) \
+		aqua::Logger::LogFormatSync(aqua::Logger::Level::DEBUG, format, __VA_ARGS__)
+#else
+	#define AQUA_LOG_DEBUG(format, ...)
+	#define AQUA_LOG_DEBUG_SYNC(format, ...)
+#endif // AQUA_DEBUG_ENABLE_LOG
 
 #endif // !AQUA_LOGGER_HEADER

@@ -41,7 +41,6 @@ namespace aqua {
 
 	private:
 		Config	     m_config;
-		EngineInfo   m_info;
 		State	     m_state;
 
 		MemorySystem m_memorySystem;

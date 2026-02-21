@@ -128,6 +128,7 @@ namespace aqua {
 			return true;
 		}
 
+		// Cut if 'cstr' length is too large and return false
 		bool Set(ConstPointer cstr) noexcept {
 			if (m_buffer == cstr) {
 				return true;
@@ -139,6 +140,9 @@ namespace aqua {
 				return true;
 			}
 			if (cstrSize > BufferSize) {
+				m_size = BufferSize;
+				std::memcpy(m_buffer, cstr, sizeof(ValueType) * m_size);
+				m_buffer[m_size] = EOFchar;
 				return false;
 			}
 			m_size = cstrSize;

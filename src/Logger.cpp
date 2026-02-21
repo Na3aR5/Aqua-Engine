@@ -46,6 +46,16 @@ namespace {
 			}
 			CloseHandle(hRead);
 
+			m_closeJob = CreateJobObject(NULL, NULL);
+			if (m_closeJob == NULL) {
+				status.EmplaceError(aqua::Error::FAILED_TO_CREATE_LOGGER_OWN_CONSOLE);
+				return;
+			}
+			JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
+			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+			SetInformationJobObject(m_closeJob, JobObjectExtendedLimitInformation, &info, sizeof(info));
+			AssignProcessToJobObject(m_closeJob, processInfo.hProcess);
+
 			m_processHandle = processInfo.hProcess;
 			m_threadHandle  = processInfo.hThread;
 			m_writeHandle   = hWrite;
@@ -66,7 +76,7 @@ namespace {
 			DWORD written;
 			WriteFile(m_writeHandle, buffer, size, &written, NULL);
 			if (written != size) {
-				return aqua::Unexpected<aqua::Error>(aqua::Error::FAILED_TO_WRITE_LOG_MESSAGE);
+				return aqua::Error::FAILED_TO_WRITE_LOG_MESSAGE;
 			}
 			return aqua::Success{};
 		}
@@ -84,15 +94,19 @@ namespace {
 			if (m_threadHandle) {
 				CloseHandle(m_threadHandle);
 			}
-			m_writeHandle   = nullptr;
-			m_processHandle = nullptr;
-			m_threadHandle  = nullptr;
+			CloseHandle(m_closeJob);
+
+			m_closeJob		= NULL;
+			m_writeHandle   = NULL;
+			m_processHandle = NULL;
+			m_threadHandle  = NULL;
 		}
 
 	private:
-		HANDLE     m_writeHandle   = nullptr;
-		HANDLE     m_processHandle = nullptr;
-		HANDLE     m_threadHandle  = nullptr;
+		HANDLE     m_writeHandle   = NULL;
+		HANDLE     m_processHandle = NULL;
+		HANDLE     m_threadHandle  = NULL;
+		HANDLE     m_closeJob	   = NULL;
 
 		CommandSet m_cmdSet;
 	}; // class LoggerProcessNewConsole
@@ -101,7 +115,7 @@ namespace {
 
 aqua::Logger* aqua::Logger::s_Logger = nullptr;
 uint8_t aqua::Logger::s_DelayedMessageCount = 0;
-aqua::Logger::_Packet aqua::Logger::s_DelayedMessages[aqua::Config::Logger::MAX_DELAYED_MESSAGES] = {};
+aqua::Logger::_Packet aqua::Logger::s_DelayedMessages[aqua::Config::LoggerInfo::MAX_DELAYED_MESSAGES] = {};
 
 aqua::Logger::Logger(
 const Config& config, Status& status) : m_config(config) {
@@ -111,10 +125,10 @@ const Config& config, Status& status) : m_config(config) {
 		return;
 	}
 
-	switch (m_config.logger.destination) {
-		case Config::Logger::Destination::CONSOLE: {
+	switch (m_config.GetLoggerInfo().destination) {
+		case Config::LoggerInfo::Destination::CONSOLE: {
 			LoggerProcessNewConsole::CommandSet cmdSet = {
-				.exitCmd = config.logger.exitCmd
+				.exitCmd = config.GetLoggerInfo().exitCmd
 			};
 			auto expectedProcess = CreateUniqueData<LoggerProcessNewConsole>(
 				Literal(AQUA_LOGGER_CONSOLE_PROCESS_PATH), cmdSet, status
@@ -144,18 +158,18 @@ const Config& config, Status& status) : m_config(config) {
 			size_t writeIndex = m_writeIndex.load(std::memory_order_acquire);
 
 			if (readIndex != writeIndex) {
-				_Packet packet = m_packetBuffer[readIndex % Config::Logger::MAX_PACKETS_AT_TIME];
+				_Packet packet = m_packetBuffer[readIndex % Config::LoggerInfo::MAX_PACKETS_AT_TIME];
 
 				m_buffer[0] = (char)packet.level; // level header
 				int writtenTime = _WriteTime(
 					m_buffer + 1,
-					Config::Logger::MAX_MESSAGE_LENGTH - 1,
+					Config::LoggerInfo::MAX_MESSAGE_LENGTH - 1,
 					packet.timePoint
 				); // write ~14 bytes
 
 				if (packet.argCount == 0) { // zero arguments optimization
 					sprintf_s(m_buffer + 1 + writtenTime,
-						(size_t)Config::Logger::MAX_MESSAGE_LENGTH - (size_t)(1 + writtenTime), "%s",
+						(size_t)Config::LoggerInfo::MAX_MESSAGE_LENGTH - (size_t)(1 + writtenTime), "%s",
 						packet.formatString.GetPtr()
 					);
 					m_loggerProcess->WriteMessage(m_buffer, 2 + writtenTime +
@@ -163,7 +177,7 @@ const Config& config, Status& status) : m_config(config) {
 				}
 				else {
 					size_t offset = (size_t)(1 + writtenTime);
-					size_t size = (size_t)Config::Logger::MAX_MESSAGE_LENGTH;
+					size_t size = (size_t)Config::LoggerInfo::MAX_MESSAGE_LENGTH;
 
 					size_t written = _MakeFormat(
 						packet.formatString.GetPtr(), packet.formatString.GetLength(),

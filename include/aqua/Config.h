@@ -11,21 +11,17 @@ namespace aqua {
 	// Engine configuration
 	class Config {
 	public:
-		Config(const EngineInfo& engineInfo);
+		Config(const aqua::EngineInfo& info);
+		Config& SpecifyEngineInternalInfo(const EngineInternalInfo& info) noexcept;
 
 	public:
-		const struct Engine {
-			StringLiteralPointer name;
-			Version              version;
-		} engine;
+		struct EngineInfo {
+			aqua::EngineInfo   external;
+			EngineInternalInfo internal;
+		};
 
-		const struct Application {
-			const char* name;
-			Version     version;
-		} application;
-
-		const struct Logger {
-			const enum class Destination {
+		struct LoggerInfo {
+			enum class Destination {
 				FILE,
 				CONSOLE
 			} destination;
@@ -36,7 +32,15 @@ namespace aqua {
 			static constexpr uint8_t  MAX_FORMAT_ARGUMENTS = 8;
 			static constexpr uint8_t  MAX_PACKETS_AT_TIME  = 10;
 			static constexpr uint8_t  MAX_DELAYED_MESSAGES = 10;
-		} logger;
+		};
+
+	public:
+		const Config::EngineInfo& GetEngineInfo() const noexcept;
+		const LoggerInfo&	      GetLoggerInfo() const noexcept;
+
+	private:
+		Config::EngineInfo m_engine;
+		LoggerInfo		   m_logger;
 	}; // class Config
 }
 

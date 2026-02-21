@@ -11,7 +11,7 @@ namespace {
 	aqua::WindowSystem* g_WindowSystem = nullptr;
 }
 
-aqua::WindowSystem::WindowSystem(const WindowSystemInfo& info, Status& status) : m_info(info) {
+aqua::WindowSystem::WindowSystem(const Config& config, Status& status) : m_config(config) {
 	AQUA_ASSERT(g_WindowSystem == nullptr, Literal("Attempt to create another WindowSystem instance"));
 
 	if (!status.IsSuccess() || g_WindowSystem != nullptr) {
@@ -19,6 +19,12 @@ aqua::WindowSystem::WindowSystem(const WindowSystemInfo& info, Status& status) :
 	}
 	if (!glfwInit()) {
 		status.EmplaceError(Error::FAILED_TO_INITIALIZE_GLFW_LIBRARY);
+		return;
+	}
+	aqua::Status creationStatus = _CreateMainWindow();
+	if (!creationStatus.IsSuccess()) {
+		_Terminate();
+		status.EmplaceError(creationStatus.GetError());
 		return;
 	}
 	g_WindowSystem = this;
@@ -34,19 +40,24 @@ aqua::WindowSystem::~WindowSystem() {
 	_Terminate();
 }
 
+aqua::WindowSystem& aqua::WindowSystem::Get() noexcept { return *g_WindowSystem; }
+const aqua::WindowSystem& aqua::WindowSystem::GetConst() noexcept { return *g_WindowSystem; }
+
 void aqua::WindowSystem::_Terminate() noexcept {
 	glfwTerminate();
 	g_WindowSystem = nullptr;
 }
 
 aqua::Status aqua::WindowSystem::_CreateMainWindow() noexcept {
-	if (m_info.mainWindowSize.x == 0 || m_info.mainWindowSize.y == 0 || m_info.mainWindowTitle == nullptr) {
+	const WindowSystemInfo& info = m_config.GetEngineInfo().external.windowSystem;
+
+	if (info.mainWindowSize.x == 0 || info.mainWindowSize.y == 0 || info.mainWindowTitle == nullptr) {
 		return Error::INCORRECT_WINDOW_RESOLUTION_OR_TITLE_IS_NULLPTR;
 	}
 	
-	RHI::SetMainWindowHints();
-	GLFWwindow* newMainWindow = glfwCreateWindow(m_info.mainWindowSize.x, m_info.mainWindowSize.y,
-		m_info.mainWindowTitle, nullptr, nullptr);
+	RHI::Static::SetMainWindowHints(m_config.GetEngineInfo().external.renderAPI);
+	GLFWwindow* newMainWindow = glfwCreateWindow(info.mainWindowSize.x, info.mainWindowSize.y,
+		info.mainWindowTitle, nullptr, nullptr);
 
 	if (newMainWindow == nullptr) {
 		return Error::FAILED_TO_CREATE_WINDOW_INSTANCE;
@@ -54,8 +65,12 @@ aqua::Status aqua::WindowSystem::_CreateMainWindow() noexcept {
 
 	AQUA_LOG(Literal("Main window is created"));
 
-	EventSystem::Get()._SetWindowCallbacks(newMainWindow, m_info.m_mainWindowEventSet);
+	EventSystem::Get()._SetWindowCallbacks(newMainWindow, info.m_mainWindowEventSet);
 	m_mainWindow = newMainWindow;
 
 	return Success{};
+}
+
+void* aqua::WindowSystem::_GetMainWindowPtr() const noexcept {
+	return m_mainWindow;
 }

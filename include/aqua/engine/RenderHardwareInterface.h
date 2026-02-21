@@ -11,7 +11,9 @@ namespace aqua {
 	// Render interface for all render APIs
 	class RenderHardwareInterface {
 	public:
-		using RHI_SetMainWindowHintsFunction = void(*)();
+		struct Static {
+			static void SetMainWindowHints(RenderAPI API) noexcept;
+		};
 
 	public:
 		~RenderHardwareInterface();
@@ -26,12 +28,11 @@ namespace aqua {
 		RenderHardwareInterface& Get() noexcept;
 		const RenderHardwareInterface& GetConst() noexcept;
 
-	public:
-		static RHI_SetMainWindowHintsFunction SetMainWindowHints;
-
 	private:
 		friend class Engine;
-		RenderHardwareInterface(const Config&, RenderAPI, Status&);
+		friend class VulkanAPI;
+
+		RenderHardwareInterface(const Config&, Status&);
 
 	private:
 		RenderAPI                 m_renderAPI;

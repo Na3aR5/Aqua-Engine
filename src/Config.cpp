@@ -1,16 +1,23 @@
 #include <aqua/Config.h>
 
-aqua::Config::Config(const EngineInfo& info) :
-	engine {
-		.name = Literal("Aqua Engine"),
-		.version = Version(1, 0, 0)
+aqua::Config::Config(const aqua::EngineInfo& info) :
+	m_engine{
+		.external = info,
+		.internal = EngineInternalInfo{
+			.name    = Literal("Aqua Engine"),
+			.version = Version(0, 0, 0)
+		}
 	},
-	application {
-		.name = info.applicationName,
-		.version = info.applicationVersion
-	},
-	logger {
-		.destination = Logger::Destination::CONSOLE,
-		.exitCmd     = Literal("/exit\n")
+	m_logger {
+		.destination = LoggerInfo::Destination::CONSOLE,
+		.exitCmd	 = Literal("/exit\n")
 	}
 {}
+
+aqua::Config& aqua::Config::SpecifyEngineInternalInfo(const EngineInternalInfo& info) noexcept {
+	m_engine.internal = info;
+	return *this;
+}
+
+const aqua::Config::EngineInfo& aqua::Config::GetEngineInfo() const noexcept { return m_engine; }
+const aqua::Config::LoggerInfo& aqua::Config::GetLoggerInfo() const noexcept { return m_logger; }

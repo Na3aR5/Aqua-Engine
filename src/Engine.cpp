@@ -7,14 +7,13 @@ namespace {
 
 aqua::Engine::Engine(const EngineInfo& info, Status& status) noexcept :
 m_config(info),
-m_info(info),
 m_state(State::CRASHED), // temporary
 m_memorySystem(status),
 m_logger(m_config, status),
 m_eventSystem(status),
-m_windowSystem(m_info.windowSystem, status),
-m_layerSystem(status), 
-m_RHI(m_config, m_info.renderAPI, status) {
+m_windowSystem(m_config, status),
+m_layerSystem(status),
+m_RHI(m_config, status) {
 	AQUA_ASSERT(g_Engine == nullptr, Literal("Attempt to create another instance of Engine"));
 
 	if (g_Engine != nullptr) {
@@ -25,15 +24,8 @@ m_RHI(m_config, m_info.renderAPI, status) {
 		return;
 	}
 
-	status = m_windowSystem._CreateMainWindow();
-	if (!status.IsSuccess()) {
-		m_windowSystem._Terminate();
-		return;
-	}
-
 	m_state  = State::CREATED;
 	g_Engine = this;
-	status.EmplaceValue();
 }
 
 aqua::Engine::~Engine() {
