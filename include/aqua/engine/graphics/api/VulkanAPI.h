@@ -7,8 +7,7 @@
 #include <aqua/engine/ForwardSystems.h>
 #include <aqua/datastructures/Array.h>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <vulkan/vulkan.h>
 
 namespace aqua {
 	class RenderHardwareInterface;
@@ -58,7 +57,7 @@ namespace aqua {
 			presentModes(std::move(presentModes)) {}
 
 		public:
-			VkSurfaceCapabilitiesKHR			surfaceCapabilites;
+			VkSurfaceCapabilitiesKHR			surfaceCapabilites = {};
 			aqua::SafeArray<VkSurfaceFormatKHR> surfaceFormats;
 			aqua::SafeArray<VkPresentModeKHR>   presentModes;
 		}; // struct SwapchainSupportDetails
@@ -73,9 +72,6 @@ namespace aqua {
 		VulkanAPI& operator=(VulkanAPI&&) noexcept = delete;
 
 	public:
-		static void SetMainWindowHints() noexcept;
-
-	public:
 		Expected<QueueFamilyIndices, Error> FindQueueFamilies(const GPU& gpu, uint32_t familyBits) const noexcept;
 		Expected<SwapchainSupportDetails, Error> QuerySwapchainSupport(const GPU gpu) const noexcept;
 
@@ -85,17 +81,22 @@ namespace aqua {
 
 	private:
 		aqua::Status _CreateVulkanInstance() noexcept;
+		aqua::Status _CreateDebugMessenger() noexcept;
 		aqua::Status _CreateSurface() noexcept;
 		aqua::Status _PickGPU() noexcept;
-
-#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
-		aqua::Status _CreateDebugMessenger() noexcept;
-		void _DestroyDebugMessenger() noexcept;
-#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+		aqua::Status _CreateLogicalDevice() noexcept;
+		aqua::Status _CreateSwapchain() noexcept;
+		aqua::Status _CreateSwapchainImageViews() noexcept;
+		aqua::Status _CreateRenderPass() noexcept;
 
 		void _DestroyVulkanInstance() noexcept;
+		void _DestroyDebugMessenger() noexcept;
 		void _DestroySurface() noexcept;
 		void _UnbindGPU() noexcept;
+		void _DestroyLogicalDevice() noexcept;
+		void _DestroySwapchain() noexcept;
+		void _DestroySwapchainImageViews() noexcept;
+		void _DestroyRenderPass() noexcept;
 
 		void _Terminate() noexcept;
 
@@ -104,16 +105,33 @@ namespace aqua {
 		Expected<bool, Error> _CheckGPUextensionSupport(const GPU& gpu) const noexcept;
 		uint64_t _ScoreGPU(const GPU& gpu, const GPU_Properties* properties) const noexcept;
 
+		VkSurfaceFormatKHR _SelectSwapchainSurfaceFormat(const aqua::SafeArray<VkSurfaceFormatKHR>& formats) const noexcept;
+		VkPresentModeKHR _SelectSwapchainPresentMode(const aqua::SafeArray<VkPresentModeKHR>& modes) const noexcept;
+		VkExtent2D _SelectSwapchainExtent(const VkSurfaceCapabilitiesKHR& capabilities) const noexcept;
+
 	private:
-		const Config&			 m_config;
-		size_t					 m_initializeCount = 0;
+		const Config&				 m_config;
+		size_t						 m_initializeCount      = 0;
 
-		VkAllocationCallbacks*   m_allocator	   = nullptr;
+		VkAllocationCallbacks*		 m_allocator	        = nullptr;
 
-		VkInstance			     m_instance		   = VK_NULL_HANDLE;
-		VkDebugUtilsMessengerEXT m_debugMessenger  = VK_NULL_HANDLE;
-		VkSurfaceKHR             m_surface		   = VK_NULL_HANDLE;
-		GPU                      m_GPU			   = VK_NULL_HANDLE;
+		VkInstance					 m_instance			    = VK_NULL_HANDLE;
+		VkDebugUtilsMessengerEXT	 m_debugMessenger	    = VK_NULL_HANDLE;
+		VkSurfaceKHR				 m_surface				= VK_NULL_HANDLE;
+		GPU							 m_GPU					= VK_NULL_HANDLE;
+		VkDevice                     m_logicalDevice		= VK_NULL_HANDLE;
+
+		VkQueue                      m_graphicsQueue		= VK_NULL_HANDLE;
+		VkQueue					     m_presentQueue			= VK_NULL_HANDLE;
+
+		VkSwapchainKHR			     m_swapchain            = VK_NULL_HANDLE;
+		VkFormat				     m_swapchainImageFormat = {};
+		VkExtent2D					 m_swapchainExtent		= {};
+
+		VkRenderPass                 m_renderPass		    = VK_NULL_HANDLE;
+
+		aqua::SafeArray<VkImage>     m_swapchainImages;
+		aqua::SafeArray<VkImageView> m_swapchainImageViews;
 	}; // class VulkanAPI
 } // namespace aqua
 

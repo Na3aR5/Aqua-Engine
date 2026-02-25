@@ -30,8 +30,13 @@ namespace aqua {
 
 			static constexpr uint16_t MAX_MESSAGE_LENGTH   = 512;
 			static constexpr uint8_t  MAX_FORMAT_ARGUMENTS = 8;
-			static constexpr uint8_t  MAX_PACKETS_AT_TIME  = 10;
 			static constexpr uint8_t  MAX_DELAYED_MESSAGES = 10;
+
+#if AQUA_DEBUG
+			static constexpr uint8_t  MAX_PACKETS_AT_TIME = 50;
+#else
+			static constexpr uint8_t  MAX_PACKETS_AT_TIME = 5;
+#endif // 
 		};
 
 	public:

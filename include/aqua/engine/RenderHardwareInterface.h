@@ -11,11 +11,6 @@ namespace aqua {
 	// Render interface for all render APIs
 	class RenderHardwareInterface {
 	public:
-		struct Static {
-			static void SetMainWindowHints(RenderAPI API) noexcept;
-		};
-
-	public:
 		~RenderHardwareInterface();
 
 		RenderHardwareInterface(const RenderHardwareInterface&) = delete;
@@ -25,8 +20,7 @@ namespace aqua {
 		RenderHardwareInterface& operator=(RenderHardwareInterface&&) noexcept = delete;
 
 	public:
-		RenderHardwareInterface& Get() noexcept;
-		const RenderHardwareInterface& GetConst() noexcept;
+		static const RenderHardwareInterface& Get() noexcept;
 
 	private:
 		friend class Engine;
@@ -35,8 +29,8 @@ namespace aqua {
 		RenderHardwareInterface(const Config&, Status&);
 
 	private:
-		RenderAPI                 m_renderAPI;
-		MemorySystem::VoidPointer m_API = nullptr;
+		RenderAPI            m_renderAPI;
+		MemorySystem::Handle m_API = nullptr;
 	}; // class RenderHardwareInterface
 
 	using RHI = RenderHardwareInterface;

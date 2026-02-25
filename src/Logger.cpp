@@ -153,7 +153,7 @@ const Config& config, Status& status) : m_config(config) {
 
 	m_isRunning = true;
 	m_logThread = std::thread([this]() {
-		while (m_isRunning) {
+		while (m_isRunning || m_readIndex.load() != m_writeIndex.load()) {
 			size_t readIndex  = m_readIndex.load(std::memory_order_relaxed);
 			size_t writeIndex = m_writeIndex.load(std::memory_order_acquire);
 

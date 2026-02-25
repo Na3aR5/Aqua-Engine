@@ -279,6 +279,23 @@ namespace aqua {
 
 	// 'Remove' methods
 	public:
+		void Clear() noexcept {
+			if (m_pair.value.first != nullptr) {
+				_DestroyRange(m_pair.value.first, m_pair.value.last);
+			}
+		}
+
+		void DeepClear() noexcept {
+			if (m_pair.value.first != nullptr) {
+				_DestroyRange(m_pair.value.first, m_pair.value.last);
+				m_pair.GetAllocator().Deallocate(m_pair.value.first, _GetCapacityUnchecked());
+
+				m_pair.value.first = nullptr;
+				m_pair.value.last  = nullptr;
+				m_pair.value.end   = nullptr;
+			}
+		}
+
 		// Remove 'count' elements from the end
 		void Pop(size_t count) {
 			_DestroyRange(m_pair.value.last - count, m_pair.value.last);

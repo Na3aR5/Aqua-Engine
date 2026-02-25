@@ -1,44 +1,10 @@
 #include <aqua/engine/EventSystem.h>
+#include <aqua/engine/WindowSystem.h>
 #include <aqua/Logger.h>
 #include <aqua/Assert.h>
 
-#include <GLFW/glfw3.h>
-
 namespace {
 	aqua::EventSystem* g_EventSystem = nullptr;
-}
-
-void(*aqua::EventSystem::s_SetWindowCallbackFuncs[(int)aqua::Event::EVENT_COUNT])(void*) = {
-	[](void* w) {
-		glfwSetWindowCloseCallback((GLFWwindow*)w, [](GLFWwindow* wnd) {
-			EventSystem& eventSystem = EventSystem::Get();
-
-			eventSystem.m_eventQueue.Push(_EventInfo{
-				.event = Event::WINDOW_CLOSE,
-				.data = EventData()
-			});
-		});
-	}
-};
-
-void aqua::EventSystem::_PollEvents() const noexcept {
-	glfwPollEvents();
-}
-
-aqua::Event aqua::EventSystem::_Dispatch() noexcept {
-	const _EventInfo& info = m_eventQueue.Get();
-	m_currentEventData = info.data;
-	Event event = info.event;
-	m_eventQueue.Pop();
-	return event;
-}
-
-void aqua::EventSystem::_SetWindowCallbacks(void* wnd, const EventSet& events) const noexcept {
-	for (int i = 0; i < (int)Event::EVENT_COUNT; ++i) {
-		if (events.Has((Event)i)) {
-			s_SetWindowCallbackFuncs[i](wnd);
-		}
-	}
 }
 
 aqua::EventSystem& aqua::EventSystem::Get() noexcept { return *g_EventSystem; }
@@ -65,4 +31,23 @@ aqua::EventSystem::EventSystem(Status& status) {
 
 aqua::EventSystem::~EventSystem() {
 	g_EventSystem = nullptr;
+}
+
+aqua::Event aqua::EventSystem::_Dispatch() noexcept {
+	const _EventInfo& info = m_eventQueue.Get();
+	m_currentEventData = info.data;
+	Event event = info.event;
+	m_eventQueue.Pop();
+	return event;
+}
+
+void aqua::EventSystem::_RegisterEvent(Event event, const EventData& data) noexcept {
+	if (m_eventQueue.IsFull()) {
+		return; // drop (almost never happened)
+	}
+	m_eventQueue.Push(_EventInfo{ event, data });
+}
+
+void aqua::EventSystem::_PollEvents() noexcept {
+	WindowSystem::Get().m_private.PollEvents();
 }

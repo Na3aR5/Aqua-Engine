@@ -27,6 +27,8 @@ add_library(Aqua STATIC
 
 	include/aqua/engine/graphics/api/VulkanAPI.h
 
+	include/aqua/engine/graphics/wapi/GLFWAPI.h
+
 	include/aqua/utility/StringLiteral.h
 	include/aqua/utility/Memory.h
 
@@ -51,6 +53,8 @@ add_library(Aqua STATIC
 	src/Event.cpp
 
 	src/VulkanAPI.cpp
+
+	src/GLFWAPI.cpp
 
 	src/String.cpp
 )

@@ -299,6 +299,7 @@ namespace aqua {
 		aqua::Logger::LogFormatSync(aqua::Logger::Level::INFO, format, __VA_ARGS__)
 #else
 	#define AQUA_LOG(format, ...)
+	#define AQUA_LOG_SYNC(format, ...)
 #endif // AQUA_BUILD_TYPE_ENABLE_LOG_INFO
 
 #if AQUA_BUILD_TYPE_ENABLE_LOG_ALLOCATIONS

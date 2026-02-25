@@ -2,8 +2,8 @@
 #define AQUA_EVENT_SYSTEM_HEADER
 
 #include <aqua/Error.h>
-#include <aqua/engine/ForwardSystems.h>
 #include <aqua/engine/Event.h>
+#include <aqua/engine/ForwardSystems.h>
 #include <aqua/datastructures/Queue.h>
 
 namespace aqua {
@@ -25,14 +25,14 @@ namespace aqua {
 		const EventData& GetCurrentEventData() const noexcept;
 
 	private:
-		void _PollEvents() const noexcept;
+		void _PollEvents() noexcept;
 		Event _Dispatch() noexcept;
-		void _SetWindowCallbacks(void* wnd, const EventSet& events) const noexcept;
+		void _RegisterEvent(Event event, const EventData& data) noexcept;
 
 	private:
 		friend class Engine;
 		friend class LayerSystem;
-		friend class WindowSystem;
+		friend class GLFW_API;
 
 		EventSystem(Status&);
 
@@ -42,10 +42,8 @@ namespace aqua {
 			EventData data;
 		}; // struct _EventInfo
 
-		static void(*s_SetWindowCallbackFuncs[(int)Event::EVENT_COUNT])(void*);
-
-		EventData         m_currentEventData;
-		Queue<_EventInfo> m_eventQueue;
+		EventData				    m_currentEventData;
+		RingQueue<_EventInfo, 1024> m_eventQueue;
 	}; // class EventSystem
 } // namespace aqua
 

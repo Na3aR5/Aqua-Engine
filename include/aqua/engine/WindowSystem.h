@@ -3,12 +3,21 @@
 
 #include <aqua/Error.h>
 #include <aqua/Config.h>
-#include <aqua/engine/Defines.h>
 #include <aqua/math/Vector.h>
+#include <aqua/engine/Defines.h>
 #include <aqua/engine/ForwardSystems.h>
+#include <aqua/engine/MemorySystem.h>
+
+#include <aqua/datastructures/Array.h>
 
 namespace aqua {
 	class WindowSystem {
+	public:
+		using CreateVulkanWindowSurfaceFunction			  = Expected<void*, Error>(*)(void*, void*);
+		using GetVulkanRequiredInstanceExtensionsFunction = Expected<SafeArray<const char*>, Error>(*)();
+		using PollEventsFunction						  = void(*)();
+		using GetRenderWindowFramebufferSizeFunction	  = Vec2i(*)();
+
 	public:
 		~WindowSystem();
 
@@ -19,24 +28,27 @@ namespace aqua {
 		WindowSystem& operator=(WindowSystem&&) noexcept = delete;
 
 	public:
-		static WindowSystem& Get() noexcept;
-		static const WindowSystem& GetConst() noexcept;
+		static const WindowSystem& Get() noexcept;
+
+	public:
+		CreateVulkanWindowSurfaceFunction		    CreateVulkanWindowSurface	        = nullptr;
+		GetVulkanRequiredInstanceExtensionsFunction GetVulkanRequiredInstanceExtensions = nullptr;
+		GetRenderWindowFramebufferSizeFunction		GetRenderWindowFramebufferSize	    = nullptr;
 
 	private:
-		void _Terminate() noexcept;
-		Status _CreateMainWindow() noexcept;
-
-		void* _GetMainWindowPtr() const noexcept;
+		struct _Private {
+			PollEventsFunction PollEvents = nullptr;
+		} m_private;
 
 	private:
 		friend class Engine;
-		friend class VulkanAPI;
+		friend class EventSystem;
 
 		WindowSystem(const Config& config, Status& status);
 
 	private:
-		const Config& m_config;
-		void*         m_mainWindow = nullptr;
+		WindowAPI			 m_windowAPI;
+		MemorySystem::Handle m_API = nullptr;
 	}; // class WindowSystem
 } // namespace aqua
 

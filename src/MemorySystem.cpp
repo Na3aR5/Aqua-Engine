@@ -14,17 +14,17 @@ void aqua::MemorySystem::BootstrapAllocator::Deallocate(void* ptr, size_t bytes)
 	::operator delete (ptr, bytes);
 }
 
-aqua::MemorySystem::VoidPointer aqua::MemorySystem::GlobalAllocator::Allocate(size_t bytes) const noexcept {
+aqua::MemorySystem::Handle aqua::MemorySystem::GlobalAllocator::Allocate(size_t bytes) const noexcept {
 	AQUA_LOG_MEMORY(Literal("Allocated {} bytes"), bytes);
-	return VoidPointer(BootstrapAllocator().Allocate(bytes));
+	return Handle(BootstrapAllocator().Allocate(bytes));
 }
 
-void aqua::MemorySystem::GlobalAllocator::Deallocate(VoidPointer ptr, size_t bytes) const noexcept {
-	AQUA_LOG_WARNING_IF(ptr == nullptr, Literal("Attempt to deallocate nullptr"));
+void aqua::MemorySystem::GlobalAllocator::Deallocate(Handle handle, size_t bytes) const noexcept {
+	AQUA_LOG_WARNING_IF(handle == nullptr, Literal("Attempt to deallocate nullptr"));
 
 #if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
-	if (ptr != nullptr) {
-		auto* counter = ptr.GetCounter();
+	if (handle != nullptr) {
+		auto* counter = handle.GetCounter();
 		if (counter != nullptr && !counter->IsAlive()) {
 			AQUA_ASSERT(false, Literal("Call deallocate on unallocated memory"));
 			return;
@@ -34,7 +34,7 @@ void aqua::MemorySystem::GlobalAllocator::Deallocate(VoidPointer ptr, size_t byt
 		}
 	}
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
-	BootstrapAllocator().Deallocate(ptr, bytes);
+	BootstrapAllocator().Deallocate(handle, bytes);
 
 	AQUA_LOG_MEMORY_IF(ptr != nullptr, Literal("Deallocated {} bytes"), bytes);
 }

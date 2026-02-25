@@ -17,17 +17,25 @@ namespace aqua {
 		uint32_t patch = 0;
 	}; // struct Version
 
+
+	// All engine supported window APIs
+	enum class WindowAPI {
+		GLFW
+	};
+
+	// All engine supported render APIs
 	enum class RenderAPI {
 		VULKAN
 	};
 
 	struct WindowSystemInfo {
 		// Required
-		const char* mainWindowTitle = nullptr;
-		Vec2i       mainWindowSize{};
+		const char* renderWindowTitle = nullptr;
+		Vec2i       renderWindowSize  = {};
 
 		// Optional
-		EventSet m_mainWindowEventSet{};
+		WindowAPI windowAPI            = WindowAPI::GLFW;
+		EventSet  renderWindowEventSet = {};
 	}; // struct WindowInfo
 
 	struct EngineInfo {
@@ -41,8 +49,7 @@ namespace aqua {
 		WindowSystemInfo windowSystem{};
 
 		// Optional
-		RenderAPI renderAPI			   = RenderAPI::VULKAN;
-
+		RenderAPI   renderAPI		   = RenderAPI::VULKAN;
 		uint64_t    flags              = 0;
 		const char* applicationName    = nullptr;
 		Version     applicationVersion = Version(1, 0, 0);

@@ -6,34 +6,36 @@
 #include <aqua/Assert.h>
 #include <aqua/Logger.h>
 
+#include <limits>
+#include <algorithm>
+
 namespace {
 	aqua::VulkanAPI* g_VulkanAPI = nullptr;
 }
 
 namespace {
-	 aqua::Expected<aqua::SafeArray<const char*>, aqua::Error> GetRequiredExtensions() noexcept {
-		uint32_t glfwExtensionCount = 0;
-		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-		aqua::SafeArray<const char*> extensions;
-
-#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
-		AQUA_TRY(extensions.Reserve(glfwExtensionCount + 1), _);
-		extensions.PushUnchecked(glfwExtensions, glfwExtensions + glfwExtensionCount);
-		extensions.PushUnchecked(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-#else
-		AQUA_TRY(extensions.Reserve(glfwExtensionCount), _);
-		extensions.PushUnchecked(glfwExtensions, glfwExtensions + glfwExtensionCount);
-#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
-
-		return std::move(extensions);
-	}
-
-#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
 	static const char* VALIDATION_LAYERS[] = {
 		"VK_LAYER_KHRONOS_validation"
 	};
 	static const uint32_t VALIDATION_LAYER_COUNT = sizeof(VALIDATION_LAYERS) / sizeof(const char*);
+
+	const char* GPU_REQUIRED_EXTENSIONS[] = {
+		 VK_KHR_SWAPCHAIN_EXTENSION_NAME
+	};
+	uint32_t GPU_REQUIRED_EXTENSION_COUNT = sizeof(GPU_REQUIRED_EXTENSIONS) / sizeof(const char*);
+}
+
+namespace {
+	aqua::Expected<aqua::SafeArray<const char*>, aqua::Error> GetRequiredExtensions() noexcept {
+		AQUA_TRY(aqua::WindowSystem::Get().GetVulkanRequiredInstanceExtensions(), extensions);
+
+#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+		AQUA_TRY(extensions.GetValue().Reserve(1), _);
+		extensions.GetValue().PushUnchecked(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+
+		return extensions;
+	}
 
 	static VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
 		VkDebugUtilsMessageSeverityFlagBitsEXT severity,
@@ -92,7 +94,6 @@ namespace {
 			destroyFunc(instance, debugMessenger, allocator);
 		}
 	}
-#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
 }
 
 /*****************************************************************************************************************************
@@ -129,9 +130,12 @@ aqua::VulkanAPI::VulkanAPI(const Config& config, Status& status) : m_config(conf
 		&VulkanAPI::_CreateVulkanInstance,
 		&VulkanAPI::_CreateDebugMessenger,
 		&VulkanAPI::_CreateSurface,
-		&VulkanAPI::_PickGPU
+		&VulkanAPI::_PickGPU,
+		&VulkanAPI::_CreateLogicalDevice,
+		&VulkanAPI::_CreateSwapchain,
+		&VulkanAPI::_CreateSwapchainImageViews,
+		&VulkanAPI::_CreateRenderPass
 	};
-
 	for (Status(VulkanAPI::* initFunc)() : initFuncs) {
 		Status initStatus = ((*this).*initFunc)();
 		if (!initStatus.IsSuccess()) {
@@ -147,10 +151,6 @@ aqua::VulkanAPI::VulkanAPI(const Config& config, Status& status) : m_config(conf
 
 aqua::VulkanAPI::~VulkanAPI() {
 	_Terminate();
-}
-
-void aqua::VulkanAPI::SetMainWindowHints() noexcept {
-	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 }
 
 aqua::Expected<aqua::VulkanAPI::QueueFamilyIndices, aqua::Error> aqua::VulkanAPI::FindQueueFamilies(
@@ -181,7 +181,7 @@ const GPU& GPU, uint32_t families) const noexcept {
 		if (families & QueueFamilyIndices::PRESENT_BIT) {
 			VkBool32 presentQueueSupported = VK_FALSE;
 			if (vkGetPhysicalDeviceSurfaceSupportKHR(GPU, i, m_surface, &presentQueueSupported) != VK_SUCCESS) {
-				return Error::VULKAN_FAILED_TO_GET_QUEUE_FAMILY_PRESENT_SUPPORT;
+				return Error::VULKAN_FAILED_TO_ACQUIRE_QUEUE_FAMILY_PRESENT_SUPPORT;
 			}
 			if (presentQueueSupported) {
 				indices.SetFamilyIndex(QueueFamilyIndices::Family::PRESENT, i);
@@ -298,11 +298,22 @@ aqua::Status aqua::VulkanAPI::_CreateVulkanInstance() noexcept {
 	return Success{};
 }
 
-aqua::Status aqua::VulkanAPI::_CreateSurface() noexcept {
-	GLFWwindow* window = (GLFWwindow*)WindowSystem::GetConst()._GetMainWindowPtr();
-	if (glfwCreateWindowSurface(m_instance, window, m_allocator, &m_surface) != VK_SUCCESS) {
-		return Error::VULKAN_FAILED_TO_CREATE_SURFACE;
+aqua::Status aqua::VulkanAPI::_CreateDebugMessenger() noexcept {
+	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
+	PopulateDebugMessengerCreateInfo(createInfo);
+
+	if (CreateDebugUtilsMessengerEXT(m_instance, &createInfo, m_allocator, &m_debugMessenger) != VK_SUCCESS) {
+		return Error::VULKAN_FAILED_TO_CREATE_DEBUG_MESSENGER;
 	}
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Debug messenger is created"));
+
+	return Success{};
+}
+
+aqua::Status aqua::VulkanAPI::_CreateSurface() noexcept {
+	AQUA_TRY(WindowSystem::Get().CreateVulkanWindowSurface(m_instance, m_allocator), surface);
+	m_surface = (VkSurfaceKHR)surface.GetValue();
 
 	AQUA_LOG_VULKAN(Literal("VULKAN: Window surface is created"));
 
@@ -311,18 +322,22 @@ aqua::Status aqua::VulkanAPI::_CreateSurface() noexcept {
 
 aqua::Status aqua::VulkanAPI::_PickGPU() noexcept {
 	uint32_t GPUcount = 0;
-	if (vkEnumeratePhysicalDevices(m_instance, &GPUcount, nullptr) != VK_SUCCESS) {
+	aqua::SafeArray<GPU> availableGPUs;
+	VkResult enumerateResult = VK_SUCCESS;
+
+	do {
+		if (vkEnumeratePhysicalDevices(m_instance, &GPUcount, nullptr) != VK_SUCCESS) {
+			return Error::VULKAN_FAILED_TO_ENUMERATE_GPUS;
+		}
+		AQUA_TRY(availableGPUs.Resize(GPUcount), _);
+		enumerateResult = vkEnumeratePhysicalDevices(m_instance, &GPUcount, availableGPUs.GetPtr());
+	} while (enumerateResult == VK_INCOMPLETE);
+
+	if (enumerateResult != VK_SUCCESS) {
 		return Error::VULKAN_FAILED_TO_ENUMERATE_GPUS;
 	}
-
 	if (GPUcount == 0) {
 		return Error::VULKAN_NO_AVAILABLE_GPU_FOUND;
-	}
-	aqua::SafeArray<GPU> availableGPUs;
-	AQUA_TRY(availableGPUs.Resize(GPUcount), _);
-
-	if (vkEnumeratePhysicalDevices(m_instance, &GPUcount, availableGPUs.GetPtr()) != VK_SUCCESS) {
-		return Error::VULKAN_FAILED_TO_ENUMERATE_GPUS;
 	}
 
 #if AQUA_DEBUG
@@ -367,27 +382,240 @@ aqua::Status aqua::VulkanAPI::_PickGPU() noexcept {
 	return Success{};
 }
 
-#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
-aqua::Status aqua::VulkanAPI::_CreateDebugMessenger() noexcept {
-	VkDebugUtilsMessengerCreateInfoEXT createInfo{};
-	PopulateDebugMessengerCreateInfo(createInfo);
+aqua::Status aqua::VulkanAPI::_CreateLogicalDevice() noexcept {
+	uint32_t requiredFamilies = QueueFamilyIndices::GRAPHICS_BIT | QueueFamilyIndices::PRESENT_BIT;
+	AQUA_TRY(FindQueueFamilies(m_GPU, requiredFamilies), queueFamilyIndices);
 
-	if (CreateDebugUtilsMessengerEXT(m_instance, &createInfo, m_allocator, &m_debugMessenger) != VK_SUCCESS) {
-		return Error::VULKAN_FAILED_TO_CREATE_DEBUG_MESSENGER;
+	if (!queueFamilyIndices.GetValue().IsComplete(requiredFamilies)) {
+		return Error::VULKAN_NO_SUITABLE_QUEUE_FAMILIES_FOUND;
+	}
+	aqua::SafeArray<uint32_t> uniqueIndices;
+	AQUA_TRY(uniqueIndices.Resize(2), _);
+
+	uint32_t graphicsFamily = queueFamilyIndices.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::GRAPHICS);
+	uint32_t presentFamily = queueFamilyIndices.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::PRESENT);
+
+	uniqueIndices[0] = graphicsFamily;
+	uniqueIndices[1] = presentFamily;
+
+	if (uniqueIndices[0] == uniqueIndices[1]) {
+		uniqueIndices.Pop();
 	}
 
-	AQUA_LOG_VULKAN(Literal("VULKAN: Debug messenger is created"));
+	AQUA_LOG_DEBUG(Literal("VULKAN: Unique queue family indices: {}"), uniqueIndices.GetSize());
+
+	aqua::SafeArray<VkDeviceQueueCreateInfo> queueCreateInfos;
+	AQUA_TRY(queueCreateInfos.Reserve(uniqueIndices.GetSize()), __);
+
+	float queuePriority = 1.0f;
+	for (uint32_t queueFamilyIndex : uniqueIndices) {
+		VkDeviceQueueCreateInfo queueCreateInfo{};
+		queueCreateInfo.sType			 = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+		queueCreateInfo.queueFamilyIndex = queueFamilyIndex;
+		queueCreateInfo.queueCount		 = 1;
+		queueCreateInfo.pQueuePriorities = &queuePriority;
+
+		queueCreateInfos.PushUnchecked(queueCreateInfo);
+	}
+	GPU_Features GPUfeatures{};
+
+	VkDeviceCreateInfo createInfo{};
+	createInfo.sType			       = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+	createInfo.pQueueCreateInfos       = queueCreateInfos.GetPtr();
+	createInfo.queueCreateInfoCount    = static_cast<uint32_t>(queueCreateInfos.GetSize());
+	createInfo.pEnabledFeatures		   = &GPUfeatures;
+	createInfo.ppEnabledExtensionNames = GPU_REQUIRED_EXTENSIONS;
+	createInfo.enabledExtensionCount   = GPU_REQUIRED_EXTENSION_COUNT;
+
+#if AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+	createInfo.ppEnabledLayerNames = VALIDATION_LAYERS;
+	createInfo.enabledLayerCount = VALIDATION_LAYER_COUNT;
+#else
+	createInfo.ppEnabledLayerNames = nullptr;
+	createInfo.enabledLayerCount = 0;
+#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+
+	if (vkCreateDevice(m_GPU, &createInfo, m_allocator, &m_logicalDevice) != VK_SUCCESS) {
+		return Error::VULKAN_FAILED_TO_CREATE_LOGICAL_DEVICE;
+	}
+	vkGetDeviceQueue(m_logicalDevice, graphicsFamily, 0, &m_graphicsQueue);
+	vkGetDeviceQueue(m_logicalDevice, presentFamily, 0, &m_presentQueue);
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Logical device is created"));
 
 	return Success{};
 }
 
-void aqua::VulkanAPI::_DestroyDebugMessenger() noexcept {
-	DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, m_allocator);
-	m_debugMessenger = VK_NULL_HANDLE;
+aqua::Status aqua::VulkanAPI::_CreateSwapchain() noexcept {
+	AQUA_TRY(QuerySwapchainSupport(m_GPU), swapchainSupport);
+	const SwapchainSupportDetails& swapchainSupportDetails = swapchainSupport.GetValue();
 
-	AQUA_LOG_VULKAN(Literal("VULKAN: Debug messenger is destroyed"));
+	VkSurfaceFormatKHR surfaceFormat = _SelectSwapchainSurfaceFormat(swapchainSupportDetails.surfaceFormats);
+	AQUA_LOG_DEBUG(Literal("VULKAN: Selected swapchain format: format = {}, colorSpace = {}"),
+		(int)surfaceFormat.format, (int)surfaceFormat.colorSpace);
+
+	VkPresentModeKHR presentMode = _SelectSwapchainPresentMode(swapchainSupportDetails.presentModes);
+	AQUA_LOG_DEBUG(Literal("VULKAN: Selected swapchain present mode: {}"), (int)presentMode);
+
+	VkExtent2D extent = _SelectSwapchainExtent(swapchainSupportDetails.surfaceCapabilites);
+	AQUA_LOG_DEBUG(Literal("VULKAN: Selected swapchain extent: width = {}, height = {}"), extent.width, extent.height);
+
+	uint32_t imageCount = swapchainSupportDetails.surfaceCapabilites.minImageCount + 1;
+	if (swapchainSupportDetails.surfaceCapabilites.maxImageCount > 0 &&
+		imageCount > swapchainSupportDetails.surfaceCapabilites.maxImageCount) {
+		imageCount = swapchainSupportDetails.surfaceCapabilites.maxImageCount;
+	}
+	
+	AQUA_LOG_DEBUG(Literal("VULKAN: Swapchain surface image count: {}"), imageCount);
+
+	VkSwapchainCreateInfoKHR createInfo{};
+	createInfo.sType		    = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	createInfo.surface		    = m_surface;
+	createInfo.minImageCount    = imageCount;
+	createInfo.imageFormat      = surfaceFormat.format;
+	createInfo.imageColorSpace  = surfaceFormat.colorSpace;
+	createInfo.imageExtent      = extent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	uint32_t requiredFamilies = QueueFamilyIndices::GRAPHICS_BIT | QueueFamilyIndices::PRESENT_BIT;
+	AQUA_TRY(FindQueueFamilies(m_GPU, requiredFamilies), queueFamilies);
+
+	if (!queueFamilies.GetValue().IsComplete(requiredFamilies)) {
+		return Error::VULKAN_NO_SUITABLE_QUEUE_FAMILIES_FOUND;
+	}
+	uint32_t queueFamilyIndices[] = {
+		queueFamilies.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::GRAPHICS),
+		queueFamilies.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::PRESENT)
+	};
+	if (queueFamilyIndices[0] != queueFamilyIndices[1]) {
+		createInfo.imageSharingMode      = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices   = &queueFamilyIndices[0];
+	}
+	else {
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	}
+	createInfo.preTransform   = swapchainSupportDetails.surfaceCapabilites.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode    = presentMode;
+	createInfo.clipped		  = VK_TRUE;
+	createInfo.oldSwapchain   = VK_NULL_HANDLE;
+
+	if (vkCreateSwapchainKHR(m_logicalDevice, &createInfo, m_allocator, &m_swapchain) != VK_SUCCESS) {
+		return Error::VULKAN_FAILED_TO_CREATE_SWAPCHAIN;
+	}
+
+	VkResult enumerateResult = VK_SUCCESS;
+	SafeArray<VkImage> images;
+	do {
+		if (vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &imageCount, nullptr) != VK_SUCCESS) {
+			_DestroySwapchain();
+			return Error::VULKAN_FAILED_TO_ENUMERATE_SWAPCHAIN_IMAGES;
+		}
+		AQUA_TRY(images.Resize(imageCount), _);
+		enumerateResult = vkGetSwapchainImagesKHR(m_logicalDevice, m_swapchain, &imageCount, images.GetPtr());
+	} while (enumerateResult == VK_INCOMPLETE);
+
+	if (enumerateResult != VK_SUCCESS) {
+		_DestroySwapchain();
+		return Error::VULKAN_FAILED_TO_ENUMERATE_SWAPCHAIN_IMAGES;
+	}
+	m_swapchainImageFormat = surfaceFormat.format;
+	m_swapchainExtent      = extent;
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Swapchain is created"));
+
+	return Success{};
 }
-#endif // AQUA_VULKAN_ENABLE_VALIDATION_LAYERS
+
+aqua::Status aqua::VulkanAPI::_CreateSwapchainImageViews() noexcept {
+	size_t swapchainImageCount = m_swapchainImages.GetSize();
+	AQUA_TRY(m_swapchainImageViews.Resize(swapchainImageCount), _);
+
+	size_t i = 0;
+	for (; i < swapchainImageCount; ++i) {
+		VkImageViewCreateInfo createInfo{};
+		createInfo.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image    = m_swapchainImages[i];
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format   = m_swapchainImageFormat;
+
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+		createInfo.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel   = 0;
+		createInfo.subresourceRange.levelCount     = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount     = 1;
+
+		if (vkCreateImageView(m_logicalDevice, &createInfo, m_allocator, &m_swapchainImageViews[i]) != VK_SUCCESS) {
+			break;
+		}
+	}
+	if (i < swapchainImageCount) {
+		for (size_t j = 0; j < i; ++i) {
+			vkDestroyImageView(m_logicalDevice, m_swapchainImageViews[i], m_allocator);
+		}
+		m_swapchainImages.DeepClear();
+	}
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Swapchain image views are created"));
+
+	return Success{};
+}
+
+aqua::Status aqua::VulkanAPI::_CreateRenderPass() noexcept {
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format		   = m_swapchainImageFormat;
+	colorAttachment.samples		   = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp		   = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp		   = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentRef{};
+	colorAttachmentRef.attachment = 0;
+	colorAttachmentRef.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments    = &colorAttachmentRef;
+
+	VkAttachmentDescription attachments[] = { colorAttachment };
+
+	VkRenderPassCreateInfo createInfo{};
+	createInfo.sType		   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	createInfo.attachmentCount = sizeof(attachments) / sizeof(VkAttachmentDescription);
+	createInfo.pAttachments	   = attachments;
+	createInfo.subpassCount    = 1;
+	createInfo.pSubpasses	   = &subpass;
+
+	VkSubpassDependency subpassDependency{};
+	subpassDependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+	subpassDependency.dstSubpass    = 0;
+	subpassDependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.srcAccessMask = 0;
+	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	createInfo.dependencyCount = 1;
+	createInfo.pDependencies = &subpassDependency;
+
+	if (vkCreateRenderPass(m_logicalDevice, &createInfo, m_allocator, &m_renderPass) != VK_SUCCESS) {
+		return Error::VULKAN_FAILED_TO_CREATE_RENDER_PASS;
+	}
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Render pass is created"));
+
+	return Success{};
+}
 
 /*****************************************************************************************************************************
 *********************************************** VulkanAPI 'destroy' methods **************************************************
@@ -398,6 +626,13 @@ void aqua::VulkanAPI::_DestroyVulkanInstance() noexcept {
 	m_instance = VK_NULL_HANDLE;
 
 	AQUA_LOG_VULKAN(Literal("VULKAN: Vulkan instance is destroyed"));
+}
+
+void aqua::VulkanAPI::_DestroyDebugMessenger() noexcept {
+	DestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, m_allocator);
+	m_debugMessenger = VK_NULL_HANDLE;
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Debug messenger is destroyed"));
 }
 
 void aqua::VulkanAPI::_DestroySurface() noexcept {
@@ -411,8 +646,42 @@ void aqua::VulkanAPI::_UnbindGPU() noexcept {
 	m_GPU = VK_NULL_HANDLE;
 }
 
+void aqua::VulkanAPI::_DestroyLogicalDevice() noexcept {
+	vkDestroyDevice(m_logicalDevice, m_allocator);
+	m_logicalDevice = VK_NULL_HANDLE;
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Logical device is destroyed"));
+}
+
+void aqua::VulkanAPI::_DestroySwapchain() noexcept {
+	vkDestroySwapchainKHR(m_logicalDevice, m_swapchain, m_allocator);
+	m_swapchain = VK_NULL_HANDLE;
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Swapchain is destroyed"));
+}
+
+void aqua::VulkanAPI::_DestroySwapchainImageViews() noexcept {
+	for (const VkImageView& imageView : m_swapchainImageViews) {
+		vkDestroyImageView(m_logicalDevice, imageView, m_allocator);
+	}
+	m_swapchainImageViews.DeepClear();
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Swapchain image views are destroyed"));
+}
+
+void aqua::VulkanAPI::_DestroyRenderPass() noexcept {
+	vkDestroyRenderPass(m_logicalDevice, m_renderPass, m_allocator);
+	m_renderPass = VK_NULL_HANDLE;
+
+	AQUA_LOG_VULKAN(Literal("VULKAN: Render pass is destroyed"));
+}
+
 void aqua::VulkanAPI::_Terminate() noexcept {
 	void(VulkanAPI::*terminateFuncs[])() = {
+		&VulkanAPI::_DestroyRenderPass,
+		&VulkanAPI::_DestroySwapchainImageViews,
+		&VulkanAPI::_DestroySwapchain,
+		&VulkanAPI::_DestroyLogicalDevice,
 		&VulkanAPI::_UnbindGPU,
 		&VulkanAPI::_DestroySurface,
 		&VulkanAPI::_DestroyDebugMessenger,
@@ -428,12 +697,18 @@ void aqua::VulkanAPI::_Terminate() noexcept {
 }
 
 aqua::Expected<bool, aqua::Error> aqua::VulkanAPI::_IsGPUsuitable(const GPU& gpu) const noexcept {
-	uint32_t queueFamilyBits = QueueFamilyIndices::GRAPHICS_BIT | QueueFamilyIndices::PRESENT_BIT;
-	AQUA_TRY(FindQueueFamilies(gpu, queueFamilyBits), queueFamilies);
+	uint32_t requiredFamilies = QueueFamilyIndices::GRAPHICS_BIT | QueueFamilyIndices::PRESENT_BIT;
+	AQUA_TRY(FindQueueFamilies(gpu, requiredFamilies), queueFamilies);
 
-	if (!queueFamilies.GetValue().IsComplete(queueFamilyBits)) {
-		return false;
+	if (!queueFamilies.GetValue().IsComplete(requiredFamilies)) {
+		return Error::VULKAN_NO_SUITABLE_QUEUE_FAMILIES_FOUND;
 	}
+
+	AQUA_LOG_DEBUG_SYNC(Literal("VULKAN: GPU queue familes: graphics = {}, present = {}"),
+		queueFamilies.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::GRAPHICS),
+		queueFamilies.GetValue().GetFamilyIndex(QueueFamilyIndices::Family::PRESENT)
+	);
+
 	AQUA_TRY(_CheckGPUextensionSupport(gpu), isExtensionsSupported);
 
 	if (!isExtensionsSupported.GetValue()) {
@@ -464,12 +739,7 @@ aqua::Expected<bool, aqua::Error> aqua::VulkanAPI::_CheckGPUextensionSupport(con
 
 	AQUA_LOG_DEBUG(Literal("VULKAN: Available GPU extensions found: {}"), extensionCount);
 
-	const char* requiredExtensions[] = {
-		 VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
-	uint32_t requiredExtensionCount = sizeof(requiredExtensions) / sizeof(const char*);
-
-	for (const char* required : requiredExtensions) {
+	for (const char* required : GPU_REQUIRED_EXTENSIONS) {
 		bool found = false;
 
 		for (const VkExtensionProperties& available : availableExtensions) {
@@ -505,6 +775,61 @@ uint64_t aqua::VulkanAPI::_ScoreGPU(const GPU& gpu, const GPU_Properties* proper
 	else {
 		score += 500'000;
 	}
-
 	return score;
+}
+
+VkSurfaceFormatKHR aqua::VulkanAPI::_SelectSwapchainSurfaceFormat(const aqua::SafeArray<VkSurfaceFormatKHR>& formats) const noexcept {
+	if (formats.GetSize() == 1 && formats.First().format == VK_FORMAT_UNDEFINED) { // any format
+		return VkSurfaceFormatKHR{
+			.format		= VK_FORMAT_B8G8R8A8_SRGB,
+			.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR
+		};
+	}
+	VkFormat prefferedFormats[] = {
+		VK_FORMAT_B8G8R8A8_SRGB,
+		VK_FORMAT_R8G8B8A8_SRGB,
+		VK_FORMAT_B8G8R8A8_UNORM,
+		VK_FORMAT_R8G8B8A8_UNORM
+	};
+	for (const VkFormat& prefferedFormat : prefferedFormats) {
+		for (const VkSurfaceFormatKHR& format : formats) {
+			if (format.format == prefferedFormat && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+				return format;
+			}
+		}
+	}
+	// fallback
+	return formats.First();
+}
+
+VkPresentModeKHR aqua::VulkanAPI::_SelectSwapchainPresentMode(const aqua::SafeArray<VkPresentModeKHR>& modes) const noexcept {
+	for (const VkPresentModeKHR& mode : modes) {
+		if (mode == VK_PRESENT_MODE_MAILBOX_KHR) {
+			return mode;
+		}
+	}
+	// always available
+	return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+VkExtent2D aqua::VulkanAPI::_SelectSwapchainExtent(const VkSurfaceCapabilitiesKHR& capabilities) const noexcept {
+	if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
+		return capabilities.currentExtent;
+	}
+	Vec2i windowSize = WindowSystem::Get().GetRenderWindowFramebufferSize();
+	VkExtent2D actualExtent = {
+		.width  = static_cast<uint32_t>(windowSize.x),
+		.height = static_cast<uint32_t>(windowSize.y)
+	};
+	actualExtent.width = std::clamp(
+		actualExtent.width,
+		capabilities.minImageExtent.width,
+		capabilities.maxImageExtent.width
+	);
+	actualExtent.height = std::clamp(
+		actualExtent.height,
+		capabilities.minImageExtent.height,
+		capabilities.maxImageExtent.height
+	);
+	return actualExtent;
 }

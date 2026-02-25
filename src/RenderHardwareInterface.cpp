@@ -19,21 +19,7 @@ namespace {
 	aqua::RenderHardwareInterface* g_RHI = nullptr;
 }
 
-void aqua::RenderHardwareInterface::Static::SetMainWindowHints(RenderAPI API) noexcept {
-	switch (API) {
-#if AQUA_SUPPORT_VULKAN_RENDER_API
-		case RenderAPI::VULKAN:
-			VulkanAPI::SetMainWindowHints();
-#endif // AQUA_SUPPORT_VULKAN_RENDER_API
-			break;
-
-		default:
-			break;
-	}
-}
-
-aqua::RenderHardwareInterface& aqua::RenderHardwareInterface::Get() noexcept { return *g_RHI; }
-const aqua::RenderHardwareInterface& aqua::RenderHardwareInterface::GetConst() noexcept { return *g_RHI; }
+const aqua::RenderHardwareInterface& aqua::RenderHardwareInterface::Get() noexcept { return *g_RHI; }
 
 aqua::RenderHardwareInterface::RenderHardwareInterface(const Config& config, Status& status) :
 m_renderAPI(config.GetEngineInfo().external.renderAPI) {
@@ -46,8 +32,9 @@ m_renderAPI(config.GetEngineInfo().external.renderAPI) {
 	switch (m_renderAPI) {
 #if AQUA_SUPPORT_VULKAN_RENDER_API
 		case RenderAPI::VULKAN: {
-			MemorySystem::AllocatorPointer<VulkanAPI> vulkanAPI =
+			MemorySystem::Pointer<VulkanAPI> vulkanAPI =
 				MemorySystem::GlobalAllocator::Proxy<VulkanAPI>().Allocate(1);
+
 			if (vulkanAPI == nullptr) {
 				status.EmplaceError(Error::FAILED_TO_ALLOCATE_MEMORY);
 				return;
@@ -58,8 +45,8 @@ m_renderAPI(config.GetEngineInfo().external.renderAPI) {
 			LoadRenderHardwareInterfaceFunctions<VulkanAPI>();
 			break;
 		}
-	}
 #endif // AQUA_SUPPORT_VULKAN_RENDER_API
+	}
 
 	g_RHI = this;
 }
@@ -67,14 +54,18 @@ m_renderAPI(config.GetEngineInfo().external.renderAPI) {
 aqua::RenderHardwareInterface::~RenderHardwareInterface() {
 	if (m_API != nullptr) {
 		switch (m_renderAPI) {
+#if AQUA_SUPPORT_VULKAN_RENDER_API
 			case RenderAPI::VULKAN: {
-				MemorySystem::AllocatorPointer<VulkanAPI> vulkanAPI =
-					static_cast<MemorySystem::AllocatorPointer<VulkanAPI>>(m_API);
+				MemorySystem::Pointer<VulkanAPI> vulkanAPI =
+					static_cast<MemorySystem::Pointer<VulkanAPI>>(m_API);
+
 				vulkanAPI->~VulkanAPI();
 				MemorySystem::GlobalAllocator::Proxy<VulkanAPI>().Deallocate(vulkanAPI, 1);
 				m_API = nullptr;
+
 				break;
 			}
+#endif AQUA_SUPPORT_VULKAN_RENDER_API
 		}
 	}
 }

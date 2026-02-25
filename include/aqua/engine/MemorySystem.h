@@ -413,23 +413,23 @@ namespace aqua {
 
 	// System for managing heap memory, which Engine needs
 	class MemorySystem {
-#if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 	public:
+#if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 		template <typename T>
 		friend class _memory::DebugPointerBase;
 
 		template <typename T>
 		friend class DebugPointer;
 
-		using VoidPointer = DebugPointer<void>;
+		using Handle = DebugPointer<void>;
 
 		template <typename T>
-		using AllocatorPointer = DebugPointer<T>;
+		using Pointer = DebugPointer<T>;
 #else
-		using VoidPointer = void*;
+		using Handle = void*;
 
 		template <typename T>
-		using AllocatorPointer = T*;
+		using Pointer = T*;
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
 	public:
@@ -440,7 +440,7 @@ namespace aqua {
 			template <typename T>
 			struct Proxy {
 			public:
-				using Pointer = typename MemorySystem::template AllocatorPointer<T>;
+				using Pointer = typename MemorySystem::template Pointer<T>;
 
 				template <typename U>
 				struct Rebind {
@@ -493,8 +493,8 @@ namespace aqua {
 			}; // class Proxy
 
 		public:
-			VoidPointer Allocate(size_t bytes) const noexcept;
-			void Deallocate(VoidPointer ptr, size_t bytes) const noexcept;
+			Handle Allocate(size_t bytes) const noexcept;
+			void Deallocate(Handle handle, size_t bytes) const noexcept;
 		}; // class GlobalAllocator
 
 		// Store first 'InlineSize' objects inline
@@ -505,7 +505,7 @@ namespace aqua {
 			static_assert(InlineSize > 0, "aqua::MemorySystem::InlineAllocator - InlineSize must be > 0");
 
 		public:
-			using Pointer = typename MemorySystem::template AllocatorPointer<T>;
+			using Pointer = typename MemorySystem::template Pointer<T>;
 
 			template <typename U>
 			struct Rebind {
