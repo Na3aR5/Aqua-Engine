@@ -32,7 +32,6 @@ namespace aqua {
 		static void PollEvents() noexcept;
 		static Vec2i GetRenderWindowFramebufferSize() noexcept;
 
-
 	private:
 		aqua::Status _CreateRenderWindow() noexcept;
 		void _PollEvents() const noexcept;

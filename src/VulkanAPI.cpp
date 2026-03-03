@@ -1,3 +1,4 @@
+#include <aqua/pch.h>
 #include <aqua/engine/graphics/api/VulkanAPI.h>
 #include <aqua/datastructures/Array.h>
 
@@ -5,9 +6,6 @@
 
 #include <aqua/Assert.h>
 #include <aqua/Logger.h>
-
-#include <limits>
-#include <algorithm>
 
 namespace {
 	aqua::VulkanAPI* g_VulkanAPI = nullptr;

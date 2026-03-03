@@ -1,3 +1,4 @@
+#include <aqua/pch.h>
 #include <aqua/engine/RenderHardwareInterface.h>
 #include <aqua/engine/WindowSystem.h>
 #include <aqua/utility/Memory.h>

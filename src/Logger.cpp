@@ -1,3 +1,4 @@
+#include <aqua/pch.h>
 #include <aqua/Logger.h>
 #include <aqua/Assert.h>
 #include <aqua/Platform.h>
@@ -5,8 +6,6 @@
 #if AQUA_PLATFORM_WINDOWS
 	#include <Windows.h>
 #endif // AQUA_PLATFORM_WINDOWS
-
-#include <ctime>
 
 namespace {
 #if AQUA_PLATFORM_WINDOWS
