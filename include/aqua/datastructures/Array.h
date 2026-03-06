@@ -305,7 +305,7 @@ namespace aqua {
 		// Remove last element
 		void Pop() {
 			if constexpr (!std::is_trivially_destructible_v<ValueType>) {
-				(m_pair.value.last--)->~ValueType();
+				(--m_pair.value.last)->~ValueType();
 			}
 			else {
 				--m_pair.value.last;
@@ -491,6 +491,7 @@ namespace aqua {
 			if (m_pair.value.first != nullptr) {
 				_DestroyRange(m_pair.value.first, m_pair.value.last);
 				m_pair.GetAllocator().Deallocate(m_pair.value.first, GetCapacity());
+				m_pair.value.first = m_pair.value.last = m_pair.value.end = nullptr;
 			}
 		}
 

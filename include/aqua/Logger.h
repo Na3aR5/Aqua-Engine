@@ -2,10 +2,9 @@
 #define AQUA_LOGGER_HEADER
 
 #include <aqua/Config.h>
+#include <aqua/engine/ForwardSystems.h>
 #include <aqua/datastructures/String.h>
 #include <aqua/datastructures/Array.h>
-
-#include <aqua/engine/ForwardSystems.h>
 
 #include <atomic>
 #include <thread>
@@ -22,8 +21,8 @@ namespace aqua {
 			virtual ~ILoggerProcess() = default;
 
 		public:
-			virtual Status WriteMessage(const char* buffer, unsigned size) = 0;
 			virtual void Destroy() noexcept = 0;
+			virtual Status WriteMessage(const char* buffer, unsigned size) = 0;
 		}; // class ILoggerProcess
 
 		enum class Level : uint8_t {

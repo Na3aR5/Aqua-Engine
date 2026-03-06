@@ -7,17 +7,41 @@ namespace {
 	aqua::MemorySystem* g_MemorySystem = nullptr;
 }
 
-void* aqua::MemorySystem::BootstrapAllocator::Allocate(size_t bytes) const noexcept {
+aqua::MemorySystem::Handle aqua::MemorySystem::BootstrapAllocator::Allocate(size_t bytes) const noexcept {
+	return Handle(::operator new (bytes, std::nothrow));
+}
+
+void aqua::MemorySystem::BootstrapAllocator::Deallocate(Handle handle, size_t bytes) const noexcept {
+	AQUA_LOG_WARNING_IF(handle == nullptr, Literal("Attempt to deallocate nullptr"));
+
+#if AQUA_DEBUG_ENABLE_REFERENCE_COUNT
+	if (handle != nullptr) {
+		auto* counter = handle.GetCounter();
+		if (counter != nullptr && !counter->IsAlive()) {
+			// AQUA_ASSERT(false, Literal("Call deallocate on unallocated memory"));
+			return;
+		}
+		if (counter != nullptr) {
+			counter->SetAlive(false);
+		}
+	}
+#endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
+	::operator delete (handle, bytes);
+
+	AQUA_LOG_MEMORY_IF(handle != nullptr, Literal("Deallocated {} bytes"), bytes);
+}
+
+void* aqua::MemorySystem::BootstrapAllocator::AllocatePtr(size_t bytes) const noexcept {
 	return ::operator new (bytes, std::nothrow);
 }
 
-void aqua::MemorySystem::BootstrapAllocator::Deallocate(void* ptr, size_t bytes) const noexcept {
+void aqua::MemorySystem::BootstrapAllocator::DeallocatePtr(void* ptr, size_t bytes) const noexcept {
 	::operator delete (ptr, bytes);
 }
 
 aqua::MemorySystem::Handle aqua::MemorySystem::GlobalAllocator::Allocate(size_t bytes) const noexcept {
 	AQUA_LOG_MEMORY(Literal("Allocated {} bytes"), bytes);
-	return Handle(BootstrapAllocator().Allocate(bytes));
+	return BootstrapAllocator().Allocate(bytes);
 }
 
 void aqua::MemorySystem::GlobalAllocator::Deallocate(Handle handle, size_t bytes) const noexcept {
@@ -35,9 +59,9 @@ void aqua::MemorySystem::GlobalAllocator::Deallocate(Handle handle, size_t bytes
 		}
 	}
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
-	BootstrapAllocator().Deallocate(handle, bytes);
+	BootstrapAllocator().DeallocatePtr(handle, bytes);
 
-	AQUA_LOG_MEMORY_IF(ptr != nullptr, Literal("Deallocated {} bytes"), bytes);
+	AQUA_LOG_MEMORY_IF(handle != nullptr, Literal("Deallocated {} bytes"), bytes);
 }
 
 aqua::MemorySystem::MemorySystem(Status& status) {

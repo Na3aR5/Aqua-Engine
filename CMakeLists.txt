@@ -22,6 +22,7 @@ add_library(Aqua STATIC
 	include/aqua/Platform.h
 	include/aqua/Error.h
 	include/aqua/Logger.h
+	include/aqua/System.h
 
 	include/aqua/engine/Defines.h
 	include/aqua/engine/ForwardSystems.h
@@ -39,18 +40,22 @@ add_library(Aqua STATIC
 
 	include/aqua/utility/StringLiteral.h
 	include/aqua/utility/Memory.h
+	include/aqua/utility/Register.h
 
 	include/aqua/math/Vector.h
 
 	include/aqua/datastructures/StringBuffer.h
+	include/aqua/datastructures/String.h
 	include/aqua/datastructures/Array.h
 	include/aqua/datastructures/Queue.h
+	include/aqua/datastructures/HandleSet.h
 
 	src/Config.cpp
 	src/CrashReport.cpp
 	src/Platform.cpp
 	src/Error.cpp
 	src/Logger.cpp
+	src/System.cpp
 
 	src/Engine.cpp
 	src/MemorySystem.cpp
@@ -65,6 +70,7 @@ add_library(Aqua STATIC
 	src/GLFWAPI.cpp
 
 	src/String.cpp
+	src/HandleSet.cpp
 )
 
 target_precompile_headers(Aqua PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/aqua/pch.h)
@@ -85,17 +91,10 @@ target_include_directories(Aqua PUBLIC
 )
 
 add_executable(Logger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
-set_target_properties(Logger PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if(ENGINE_ENABLE_SANDBOX)
 	add_executable(Sandbox ${CMAKE_CURRENT_SOURCE_DIR}/test/sandbox/main.cpp)
-endif()
 
-if(MSVC AND CMAKE_CONFIGURATION_TYPES)
-    foreach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
-        string(TOUPPER ${OUTPUTCONFIG} OUTPUTCONFIG)
-        set_target_properties(Logger PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_BINARY_DIR}/bin
-        )
-    endforeach()
+	target_link_libraries(Sandbox PRIVATE Aqua)
+	target_include_directories(Sandbox PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 endif()

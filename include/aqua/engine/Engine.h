@@ -6,6 +6,7 @@
 #include <aqua/engine/LayerSystem.h>
 #include <aqua/engine/RenderHardwareInterface.h>
 
+#include <aqua/System.h>
 #include <aqua/Logger.h>
 
 namespace aqua {
@@ -44,6 +45,7 @@ namespace aqua {
 		State	     m_state;
 
 		MemorySystem m_memorySystem;
+		System       m_system;
 		Logger	     m_logger;
 		EventSystem  m_eventSystem;
 		WindowSystem m_windowSystem;

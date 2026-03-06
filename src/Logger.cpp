@@ -1,14 +1,9 @@
 #include <aqua/pch.h>
 #include <aqua/Logger.h>
 #include <aqua/Assert.h>
-#include <aqua/Platform.h>
-
-#if AQUA_PLATFORM_WINDOWS
-	#include <Windows.h>
-#endif // AQUA_PLATFORM_WINDOWS
+#include <aqua/System.h>
 
 namespace {
-#if AQUA_PLATFORM_WINDOWS
 	class LoggerProcessNewConsole : public aqua::Logger::ILoggerProcess {
 	public:
 		struct CommandSet {
@@ -16,50 +11,20 @@ namespace {
 		}; // struct CommandSet
 
 	public:
-		template <size_t Size>
-		LoggerProcessNewConsole(
-		aqua::StringLiteral<Size> processPath, const CommandSet& cmdSet, aqua::Status& status) : m_cmdSet(cmdSet) {
-			SECURITY_ATTRIBUTES securityAttributes{};
-			securityAttributes.nLength		  = sizeof(securityAttributes);
-			securityAttributes.bInheritHandle = TRUE;
-
-			HANDLE hRead, hWrite;
-			if (!CreatePipe(&hRead, &hWrite, &securityAttributes, 0)) {
-				status.EmplaceError(aqua::Error::FAILED_TO_CREATE_LOGGER_OWN_CONSOLE);
+		LoggerProcessNewConsole(const aqua::Config& config, aqua::Status& status) {
+			auto result = aqua::System::Get().Create<aqua::System::IChildProcess>(
+				aqua::System::ChildProcessCreateInfo {
+					.executablePath = config.GetLoggerInfo().loggerExecutablePath.GetPtr(),
+					.flags = aqua::System::ChildProcessCreateInfo::ENABLE_WRITE_BIT
+				}
+			);
+			if (!result.HasValue()) {
+				status.EmplaceError(result.GetError());
 				return;
 			}
+			m_processHandle = result.GetValue();
 
-			STARTUPINFO startupInfo{};
-			startupInfo.cb		  = sizeof(startupInfo);
-			startupInfo.dwFlags   = STARTF_USESTDHANDLES;
-			startupInfo.hStdInput = hRead;
-
-			aqua::StringLiteralPointer processPathPtr = processPath;
-
-			PROCESS_INFORMATION processInfo{};
-			BOOL result = CreateProcessA(processPathPtr.GetPtr(), NULL, NULL, NULL, TRUE,
-				CREATE_NEW_CONSOLE, NULL, NULL, &startupInfo, &processInfo);
-			if (!result) {
-				status.EmplaceError(aqua::Error::FAILED_TO_CREATE_LOGGER_OWN_CONSOLE);
-				return;
-			}
-			CloseHandle(hRead);
-
-			m_closeJob = CreateJobObject(NULL, NULL);
-			if (m_closeJob == NULL) {
-				status.EmplaceError(aqua::Error::FAILED_TO_CREATE_LOGGER_OWN_CONSOLE);
-				return;
-			}
-			JOBOBJECT_EXTENDED_LIMIT_INFORMATION info{};
-			info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-			SetInformationJobObject(m_closeJob, JobObjectExtendedLimitInformation, &info, sizeof(info));
-			AssignProcessToJobObject(m_closeJob, processInfo.hProcess);
-
-			m_processHandle = processInfo.hProcess;
-			m_threadHandle  = processInfo.hThread;
-			m_writeHandle   = hWrite;
-
-			status.EmplaceValue();
+			m_cmdSet.exitCmd = config.GetLoggerInfo().exitCmd;
 		}
 
 		LoggerProcessNewConsole(const LoggerProcessNewConsole&) = delete;
@@ -71,45 +36,19 @@ namespace {
 		~LoggerProcessNewConsole() { Destroy(); }
 
 	public:
-		virtual aqua::Status WriteMessage(const char* buffer, unsigned size) override {
-			DWORD written;
-			WriteFile(m_writeHandle, buffer, size, &written, NULL);
-			if (written != size) {
-				return aqua::Error::FAILED_TO_WRITE_LOG_MESSAGE;
-			}
-			return aqua::Success{};
+		virtual void Destroy() noexcept override {
+			WriteMessage(m_cmdSet.exitCmd.GetPtr(), (unsigned)m_cmdSet.exitCmd.GetSize());
+			aqua::System::Get().Destroy(m_processHandle);
 		}
 
-		virtual void Destroy() noexcept override {
-			if (m_processHandle) {
-				if (m_writeHandle) {
-					DWORD written;
-					WriteFile(m_writeHandle, m_cmdSet.exitCmd.GetPtr(),
-						static_cast<DWORD>(m_cmdSet.exitCmd.GetSize()), &written, NULL);
-				}
-				WaitForSingleObject(m_processHandle, INFINITE);
-				CloseHandle(m_processHandle);
-			}
-			if (m_threadHandle) {
-				CloseHandle(m_threadHandle);
-			}
-			CloseHandle(m_closeJob);
-
-			m_closeJob		= NULL;
-			m_writeHandle   = NULL;
-			m_processHandle = NULL;
-			m_threadHandle  = NULL;
+		virtual aqua::Status WriteMessage(const char* buffer, unsigned size) override {
+			return m_processHandle->Write(buffer, size);
 		}
 
 	private:
-		HANDLE     m_writeHandle   = NULL;
-		HANDLE     m_processHandle = NULL;
-		HANDLE     m_threadHandle  = NULL;
-		HANDLE     m_closeJob	   = NULL;
-
-		CommandSet m_cmdSet;
+		aqua::System::Handle<aqua::System::IChildProcess> m_processHandle;
+		CommandSet										  m_cmdSet;
 	}; // class LoggerProcessNewConsole
-#endif // AQUA_PLATFORM_WINDOWS
 }
 
 aqua::Logger* aqua::Logger::s_Logger = nullptr;
@@ -126,16 +65,12 @@ const Config& config, Status& status) : m_config(config) {
 
 	switch (m_config.GetLoggerInfo().destination) {
 		case Config::LoggerInfo::Destination::CONSOLE: {
-			LoggerProcessNewConsole::CommandSet cmdSet = {
-				.exitCmd = config.GetLoggerInfo().exitCmd
-			};
-			auto expectedProcess = CreateUniqueData<LoggerProcessNewConsole>(
-				Literal(AQUA_LOGGER_CONSOLE_PROCESS_PATH), cmdSet, status
-			);
-			if (!expectedProcess.HasValue() || !status.IsSuccess()) {
+			auto process = aqua::CreateUniqueData<LoggerProcessNewConsole>(m_config, status);
+			if (!process.HasValue() || !status.IsSuccess()) {
+				status.EmplaceError(process.HasValue() ? process.GetError() : status.GetError());
 				return;
 			}
-			m_loggerProcess = std::move(expectedProcess.GetValue());
+			m_loggerProcess = std::move(process.GetValue());
 
 			AQUA_LOG(Literal("Logger own console is created"));
 			break;

@@ -26,6 +26,7 @@ namespace aqua {
 				CONSOLE
 			} destination;
 
+			StringLiteralPointer loggerExecutablePath;
 			StringLiteralPointer exitCmd;
 
 			static constexpr uint16_t MAX_MESSAGE_LENGTH   = 512;
@@ -36,7 +37,7 @@ namespace aqua {
 			static constexpr uint8_t  MAX_PACKETS_AT_TIME = 50;
 #else
 			static constexpr uint8_t  MAX_PACKETS_AT_TIME = 5;
-#endif // 
+#endif // AQUA_DEBUG
 		};
 
 	public:

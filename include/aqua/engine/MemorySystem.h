@@ -54,7 +54,7 @@ namespace aqua {
 
 		protected:
 			_Counter* _AllocateCounter() const noexcept {
-				return (_Counter*)MemorySystem::BootstrapAllocator().Allocate(sizeof(_Counter));
+				return (_Counter*)MemorySystem::BootstrapAllocator().AllocatePtr(sizeof(_Counter));
 			}
 
 			void _Destroy() {
@@ -67,7 +67,7 @@ namespace aqua {
 					return;
 				}
 				if (m_counter != nullptr) {
-					MemorySystem::BootstrapAllocator().Deallocate(m_counter, sizeof(_Counter));
+					MemorySystem::BootstrapAllocator().DeallocatePtr(m_counter, sizeof(_Counter));
 					m_counter = nullptr;
 				}
 			}
@@ -288,7 +288,7 @@ namespace aqua {
 				if (m_ptr == nullptr) {
 					AQUA_ASSERT(false, Literal("Segmentation fault: dereferencing nullptr"));
 				}
-				if (this->m_counter && this->m_counter->IsAllocated()) {
+				if (this->m_counter != nullptr && this->m_counter->IsAllocated()) {
 					AQUA_ASSERT(false, Literal("Segmentation fault: access violation"));
 				}
 			}
@@ -433,7 +433,77 @@ namespace aqua {
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
 	public:
-		// Main Engine allocator
+		// Nothrow operator new/delete
+		class BootstrapAllocator {
+		public:
+			template <typename T>
+			struct Proxy {
+			public:
+				using Pointer = typename MemorySystem::template Pointer<T>;
+
+				template <typename U>
+				struct Rebind {
+					using AllocatorType = Proxy<U>;
+				};
+
+			public:
+				Proxy()			    noexcept = default;
+				Proxy(const Proxy&) noexcept = default;
+				Proxy(Proxy&&)      noexcept = default;
+
+				Proxy& operator=(const Proxy&) noexcept = default;
+				Proxy& operator=(Proxy&&)	   noexcept = default;
+
+				template <typename U>
+				Proxy(const Proxy<U>&) noexcept
+					requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {};
+
+				template <typename U>
+				Proxy(Proxy<U>&&) noexcept
+					requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {};
+
+				template <typename U>
+				Proxy& operator=(const Proxy<U>&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {
+					return *this;
+				}
+
+				template <typename U>
+				Proxy& operator=(Proxy<U>&&) noexcept
+				requires(std::is_base_of_v<T, U>&& std::is_polymorphic_v<U>) {
+					return *this;
+				}
+
+			public:
+				Pointer Allocate(size_t count) const noexcept {
+					return static_cast<Pointer>(BootstrapAllocator().Allocate(sizeof(T) * count));
+				}
+
+				void Deallocate(Pointer ptr, size_t count) const noexcept {
+					return BootstrapAllocator().Deallocate(ptr, sizeof(T) * count);
+				}
+
+				void DeallocateBytes(Pointer ptr, size_t bytes) const noexcept {
+					return BootstrapAllocator().Deallocate(ptr, bytes);
+				}
+
+				Proxy OnDataStructureCopy() const noexcept { return Proxy(); }
+			}; // struct Proxy
+
+		public:
+			Handle Allocate(size_t bytes) const noexcept;
+			void Deallocate(Handle handle, size_t bytes) const noexcept;
+
+			// In release build 'AllocatePtr' is the same as 'Allocate'
+			// It used only in 'DebugPointer' implementation in debug build
+			void* AllocatePtr(size_t bytes) const noexcept;
+
+			// In release build 'DeallocatePtr' is the same as 'Deallocate'
+			// It used only in 'DebugPointer' implementation in debug build
+			void DeallocatePtr(void* ptr, size_t bytes) const noexcept;
+		}; // class BootstrapAllocator
+
+		// Main engine allocator
 		class GlobalAllocator {
 		public:
 			// Empty proxy-allocator object to access 'GlobalAllocator'
@@ -490,7 +560,7 @@ namespace aqua {
 				}
 
 				Proxy OnDataStructureCopy() const noexcept { return Proxy(); }
-			}; // class Proxy
+			}; // struct Proxy
 
 		public:
 			Handle Allocate(size_t bytes) const noexcept;
@@ -595,14 +665,6 @@ namespace aqua {
 		friend class VulkanAPI;
 		static void* _GetVulkanAllocationCallbacks() noexcept;
 #endif // AQUA_SUPPORT_VULKAN_RENDER_API
-
-	private:
-		// Nothrow operator new/delete
-		class BootstrapAllocator {
-		public:
-			void* Allocate(size_t bytes) const noexcept;
-			void Deallocate(void* ptr, size_t bytes) const noexcept;
-		}; // class _BootstrapAllocator
 
 	private:
 		friend class Engine;

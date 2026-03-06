@@ -1,17 +1,23 @@
 #include <aqua/pch.h>
 #include <aqua/Config.h>
+#include <aqua/Platform.h>
 
 aqua::Config::Config(const aqua::EngineInfo& info) :
-	m_engine{
+	m_engine {
 		.external = info,
-		.internal = EngineInternalInfo{
-			.name    = Literal("Aqua Engine"),
+		.internal = EngineInternalInfo {
+			.name = Literal("Aqua Engine"),
 			.version = Version(0, 0, 0)
 		}
 	},
 	m_logger {
 		.destination = LoggerInfo::Destination::CONSOLE,
-		.exitCmd	 = Literal("/exit\n")
+
+#if AQUA_PLATFORM_WINDOWS
+		.loggerExecutablePath = Literal("Logger.exe"),
+#endif // AQUA_PLATFORM_WINDOWS
+
+		.exitCmd = Literal("/exit\n"),
 	}
 {}
 

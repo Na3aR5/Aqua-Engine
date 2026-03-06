@@ -10,6 +10,7 @@ aqua::Engine::Engine(const EngineInfo& info, Status& status) noexcept :
 m_config(info),
 m_state(State::CRASHED), // temporary
 m_memorySystem(status),
+m_system(status),
 m_logger(m_config, status),
 m_eventSystem(status),
 m_windowSystem(m_config, status),
