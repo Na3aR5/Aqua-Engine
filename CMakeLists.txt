@@ -83,6 +83,8 @@ endif()
 if(ENGINE_SUPPORT_VULKAN)
 	find_package(Vulkan REQUIRED)
 	target_link_libraries(Aqua PUBLIC Vulkan::Vulkan)
+else()
+	find_package(Vulkan)
 endif()
 
 target_include_directories(Aqua PUBLIC
@@ -90,7 +92,8 @@ target_include_directories(Aqua PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glfw/include
 )
 
-add_executable(Logger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
+add_executable(AquaLogger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
+add_executable(AquaShaderCompiler ${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/ShaderCompiler.cpp)
 
 if(ENGINE_ENABLE_SANDBOX)
 	add_executable(Sandbox ${CMAKE_CURRENT_SOURCE_DIR}/test/sandbox/main.cpp)
