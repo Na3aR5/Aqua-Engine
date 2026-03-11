@@ -87,13 +87,28 @@ else()
 	find_package(Vulkan)
 endif()
 
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glslang)
+
 target_include_directories(Aqua PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glfw/include
 )
 
 add_executable(AquaLogger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
-add_executable(AquaShaderCompiler ${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/ShaderCompiler.cpp)
+add_executable(AquaShaderCompiler
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Parser.h
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Compiler.h
+
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/ShaderCompiler.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Parser.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Compiler.cpp
+)
+
+target_link_libraries(AquaShaderCompiler PRIVATE glslang glslang-default-resource-limits)
+target_include_directories(AquaShaderCompiler PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/utility
+	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glslang
+)
 
 if(ENGINE_ENABLE_SANDBOX)
 	add_executable(Sandbox ${CMAKE_CURRENT_SOURCE_DIR}/test/sandbox/main.cpp)

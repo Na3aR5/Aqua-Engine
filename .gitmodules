@@ -1,3 +1,6 @@
 [submodule "external/lib/glfw"]
 	path = external/lib/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "external/lib/glslang"]
+	path = external/lib/glslang
+	url = https://github.com/KhronosGroup/glslang.git
