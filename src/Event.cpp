@@ -1,6 +1,10 @@
 #include <aqua/pch.h>
 #include <aqua/engine/Event.h>
 
+aqua::EventSet aqua::EventSet::AllEvents() noexcept {
+	return EventSet().Add(Event::WINDOW_CLOSE);
+}
+
 aqua::EventSet& aqua::EventSet::Add(Event event) noexcept {
 	int intEvent = (int)event;
 	events[intEvent >> 6] |= (uint64_t)1 << (intEvent % 64);

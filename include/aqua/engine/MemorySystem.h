@@ -22,7 +22,6 @@ namespace aqua {
 				info |= (uint32_t)alive;
 			}
 			void SetAllocated() noexcept {
-				info &= ~2;
 				info |= 2;
 			}
 			bool IsAlive() const noexcept { return info & 1; }
@@ -433,6 +432,32 @@ namespace aqua {
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
 	public:
+		// Unchecked nothrow operator new/delete
+		template <typename T>
+		class NewDeleteAllocator {
+		public:
+			using Pointer = T*;
+
+			template <typename U>
+			struct Rebind {
+				using AllocatorType = NewDeleteAllocator<U>;
+			};
+
+
+		public:
+			Pointer Allocate(size_t count) noexcept {
+				return (Pointer)::operator new (count * sizeof(T), std::nothrow);
+			}
+
+			void Deallocate(Pointer ptr, size_t count) noexcept {
+				::operator delete (ptr, count * sizeof(T));
+			}
+
+			NewDeleteAllocator OnDataStructureCopy() const noexcept {
+				return NewDeleteAllocator();
+			}
+		};
+
 		// Nothrow operator new/delete
 		class BootstrapAllocator {
 		public:

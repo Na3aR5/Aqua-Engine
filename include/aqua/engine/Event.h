@@ -22,6 +22,9 @@ namespace aqua {
 		EventSet() = default;
 
 	public:
+		static EventSet AllEvents() noexcept;
+
+	public:
 		EventSet& Add(Event event) noexcept;
 		void Remove(Event event) noexcept;
 

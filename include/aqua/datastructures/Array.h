@@ -344,7 +344,8 @@ namespace aqua {
 				}
 			}
 			else {
-				// todo
+				_DestroyRange(m_pair.value.first + newSize, m_pair.value.last);
+				m_pair.value.last = m_pair.value.first + newSize;
 			}
 			return Success{};
 		}
@@ -497,7 +498,7 @@ namespace aqua {
 
 		void _ThisDeallocateUnchecked() noexcept {
 			_DestroyRange(m_pair.value.first, m_pair.value.last);
-			m_pair.GetAllocator().Deallocate(m_pair.value.first, GetCapacity());
+			m_pair.GetAllocator().Deallocate(m_pair.value.first, _GetCapacityUnchecked());
 		}
 
 		void _DestroyRange(Pointer begin, Pointer end) noexcept {

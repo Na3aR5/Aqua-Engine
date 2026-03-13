@@ -32,14 +32,14 @@ namespace aqua {
 
 		BasicSafeString(BasicSafeString&& other) noexcept requires(std::is_nothrow_move_constructible_v<Allocator>) :
 		m_pair(other.m_pair.value, std::move(other.m_pair.GetAllocator())) {
-			other.m_pair.value = _StringData();
+			other.m_pair.value = _ThisData();
 		}
 
 		BasicSafeString(const AllocatorType& allocator) noexcept requires(std::is_nothrow_copy_constructible_v<Allocator>) :
-		m_pair(_StringData(), allocator) {}
+		m_pair(_ThisData(), allocator) {}
 
 		BasicSafeString(AllocatorType&& allocator) noexcept requires(std::is_nothrow_move_constructible_v<Allocator>) :
-		m_pair(_StringData(), std::move(allocator)) { }
+		m_pair(_ThisData(), std::move(allocator)) { }
 
 		BasicSafeString(const BasicSafeString&) = delete;
 
@@ -51,7 +51,7 @@ namespace aqua {
 
 			m_pair.value = other.m_pair.value;
 			m_pair.GetAllocator() = std::move(other.m_pair.GetAllocator());
-			other.m_pair.value = _StringData();
+			other.m_pair.value = _ThisData();
 
 			return *this;
 		}
@@ -98,13 +98,12 @@ namespace aqua {
 			return m_pair.value.first == nullptr ? 0 : m_pair.value.end - m_pair.value.first;
 		}
 
-		ConstPointer GetPtr() const noexcept {
-			return m_pair.value.first;
-		}
+		Pointer GetPtr() noexcept { return m_pair.value.first; }
+		ConstPointer GetPtr() const noexcept { return m_pair.value.first; }
 
 	// Set() method overloads
 	public:
-		[[nodiscard]] Expected<Success, Error> Set(const BasicSafeString& other) noexcept {
+		[[nodiscard]] Status Set(const BasicSafeString& other) noexcept {
 			if (this == &other) {
 				return Success{};
 			}
@@ -129,7 +128,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		[[nodiscard]] Expected<Success, Error> Set(ConstPointer cstr) noexcept {
+		[[nodiscard]] Status Set(ConstPointer cstr) noexcept {
 			if (m_pair.value.first == cstr) {
 				return Success{};
 			}
@@ -152,7 +151,7 @@ namespace aqua {
 		}
 
 		// Set new value to the string as 'count' times repeated character 'value'
-		[[nodiscard]] Expected<Success, Error> Set(size_t count, ValueType value) noexcept {
+		[[nodiscard]] Status Set(size_t count, ValueType value) noexcept {
 			if (count == 0) {
 				_ThisDeallocate();
 				return Success{};
@@ -173,7 +172,7 @@ namespace aqua {
 
 		// Set new value to the string by copying range ['begin, 'end') of elements
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Expected<Success, Error> Set(Iterator begin, Iterator end) noexcept {
+		[[nodiscard]] Status Set(Iterator begin, Iterator end) noexcept {
 			size_t size = std::distance(begin, end);
 			if (size == 0) {
 				_ThisDeallocate();
@@ -200,7 +199,7 @@ namespace aqua {
 	// Append() method overloads
 	public:
 		// Add 'other' string to the end of this string (can add itself)
-		[[nodiscard]] Expected<Success, Error> Append(const BasicSafeString& other) noexcept {
+		[[nodiscard]] Status Append(const BasicSafeString& other) noexcept {
 			if (other.IsEmpty()) {
 				return Success{};
 			}
@@ -209,7 +208,7 @@ namespace aqua {
 
 		// Add c-style string 'cstr' to the end (can add it's own pointer)
 		// 'nullptr' is considered as an empty string
-		[[nodiscard]] Expected<Success, Error> Append(ConstPointer cstr) noexcept {
+		[[nodiscard]] Status Append(ConstPointer cstr) noexcept {
 			size_t cstrSize;
 			if (cstr == nullptr || (cstrSize = this->_CStrLength(cstr)) == 0) {
 				return Success{};
@@ -221,7 +220,7 @@ namespace aqua {
 		}
 
 		// Add 'count' characters 'value' to the end
-		[[nodiscard]] Expected<Success, Error> Append(size_t count, ValueType value) noexcept {
+		[[nodiscard]] Status Append(size_t count, ValueType value) noexcept {
 			if (count == 0) {
 				return Success{};
 			}
@@ -230,7 +229,7 @@ namespace aqua {
 
 		// Add range ['begin', 'end') of elements to the end by copy
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Expected<Success, Error> Append(Iterator begin, Iterator end) noexcept {
+		[[nodiscard]] Status Append(Iterator begin, Iterator end) noexcept {
 			size_t size = std::distance(begin, end);
 			if (size == 0) {
 				return Success{};
@@ -241,7 +240,7 @@ namespace aqua {
 	// 'Add' methods
 	public:
 		// Add 'value' to the end
-		[[nodiscard]] Expected<Success, Error> Push(ValueType value) noexcept {
+		[[nodiscard]] Status Push(ValueType value) noexcept {
 			size_t newSize = GetSize() + 1;
 			if (newSize > GetCapacity()) {
 				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
@@ -253,7 +252,7 @@ namespace aqua {
 		}
 
 		// Insert 'value' 'count' times starting from any valid position 'where' in the string
-		[[nodiscard]] Expected<Success, Error> Insert(
+		[[nodiscard]] Status Insert(
 		ConstIterator where, size_t count, ValueType value) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
@@ -273,12 +272,12 @@ namespace aqua {
 		}
 
 		// Insert 'value' at any valid position 'where' in the string
-		[[nodiscard]] Expected<Success, Error> Insert(ConstIterator where, ValueType value) noexcept {
+		[[nodiscard]] Status Insert(ConstIterator where, ValueType value) noexcept {
 			return Insert(where, 1, value);
 		}
 
 		// Insert 'other' string at any valid position 'where' in this string
-		[[nodiscard]] Expected<Success, Error> Insert(
+		[[nodiscard]] Status Insert(
 		ConstIterator where, const BasicSafeString& other) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
@@ -299,7 +298,7 @@ namespace aqua {
 
 		// Insert c-style string 'cstr' at any valid position 'where' in the string
 		// 'nullptr' is considered as an empty string
-		[[nodiscard]] Expected<Success, Error> Insert(ConstIterator where, ConstPointer cstr) noexcept {
+		[[nodiscard]] Status Insert(ConstIterator where, ConstPointer cstr) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
@@ -321,7 +320,7 @@ namespace aqua {
 		}
 
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Expected<Success, Error> Insert(
+		[[nodiscard]] Status Insert(
 		ConstIterator where, Iterator rangeBegin, Iterator rangeEnd) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
@@ -343,6 +342,23 @@ namespace aqua {
 			while (rangeBegin != rangeEnd) {
 				*dest = static_cast<ValueType>(*rangeBegin);
 				++dest, ++rangeBegin;
+			}
+			return Success{};
+		}
+
+	public:
+		[[nodiscard]] Status Resize(size_t newSize, ValueType value = ValueType(0)) noexcept {
+			size_t thisSize = GetSize();
+			if (thisSize == newSize) {
+				return Success{};
+			}
+			if (newSize > thisSize) {
+				AQUA_TRY(_Reserve(newSize), _);
+				std::memset(m_pair.value.last, (int)value, sizeof(ValueType) * (newSize - thisSize));
+				m_pair.value.last += (newSize - thisSize);
+			}
+			else {
+				m_pair.value.last = m_pair.value.first + newSize;
 			}
 			return Success{};
 		}
@@ -375,7 +391,7 @@ namespace aqua {
 		}
 
 		// Remove characters in any valid range ['rangeBegin, 'rangeEnd') in the string
-		Expected<Success, Error> Remove(ConstIterator rangeBegin, ConstIterator rangeEnd) noexcept {
+		Status Remove(ConstIterator rangeBegin, ConstIterator rangeEnd) noexcept {
 			if (!_IsValidIterator(rangeBegin) || !_IsValidIterator(rangeEnd)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
@@ -397,7 +413,7 @@ namespace aqua {
 		}
 
 		// Remove element at any valid position 'where' in the string
-		Expected<Success, Error> Remove(ConstIterator where) noexcept {
+		Status Remove(ConstIterator where) noexcept {
 			return Remove(where, where + 1);
 		}
 
@@ -419,7 +435,7 @@ namespace aqua {
 		ConstReverseIterator crend() const noexcept { return ConstReverseIterator(begin()); }
 
 	private:
-		Expected<Success, Error> _AppendUnchecked(const BasicSafeString& other) noexcept {
+		Status _AppendUnchecked(const BasicSafeString& other) noexcept {
 			size_t thisSize  = GetSize();
 			size_t otherSize = other.GetSize();
 			size_t newSize   = thisSize + otherSize;
@@ -434,7 +450,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		Expected<Success, Error> _AppendUnchecked(ConstPointer cstr, size_t size) noexcept {
+		Status _AppendUnchecked(ConstPointer cstr, size_t size) noexcept {
 			size_t thisSize = GetSize();
 			size_t newSize  = thisSize + size;
 
@@ -447,7 +463,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		Expected<Success, Error> _AppendUnchecked(size_t count, ValueType value) noexcept {
+		Status _AppendUnchecked(size_t count, ValueType value) noexcept {
 			size_t thisSize = GetSize();
 			size_t newSize  = thisSize + count;
 
@@ -462,7 +478,7 @@ namespace aqua {
 		}
 
 		template <typename Iterator>
-		Expected<Success, Error> _AppendUnchecked(Iterator rangeBegin, Iterator rangeEnd, size_t size) noexcept {
+		Status _AppendUnchecked(Iterator rangeBegin, Iterator rangeEnd, size_t size) noexcept {
 			size_t thisSize = GetSize();
 			size_t newSize  = thisSize + size;
 
@@ -499,7 +515,7 @@ namespace aqua {
 			}
 		}
 
-		Expected<Success, Error> _ThisReallocate(size_t newCapacity) noexcept {
+		Status _ThisReallocate(size_t newCapacity) noexcept {
 			AQUA_TRY(_Allocate(newCapacity + 1), ptr);
 
 			size_t thisSize = GetSize();
@@ -515,7 +531,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		Expected<Success, Error> _ThisGapReallocate(size_t newCapacity, size_t gapIndex, size_t gapSize) noexcept {
+		Status _ThisGapReallocate(size_t newCapacity, size_t gapIndex, size_t gapSize) noexcept {
 			AQUA_TRY(_Allocate(newCapacity + 1), ptr);
 
 			Pointer dest     = ptr.GetValue();
@@ -545,11 +561,47 @@ namespace aqua {
 			if (m_pair.value.first != nullptr) {
 				_Deallocate(m_pair.value.first, GetCapacity() + 1);
 			}
-			m_pair.value = _StringData();
+			m_pair.value = _ThisData();
+		}
+
+		void _ThisDeallocateUnchecked() noexcept {
+			m_pair.GetAllocator().Deallocate(m_pair.value.first, GetCapacity());
+		}
+
+		Status _ThisReallocateNonEmpty(size_t newSize) noexcept {
+			size_t newCapacity = _SizeToCapacity(newSize);
+			AQUA_TRY(_Allocate(newCapacity), newArray);
+
+			size_t thisSize = _GetSizeUnchecked();
+			std::memcpy(newArray.GetValue(), m_pair.value.first, sizeof(ValueType) * thisSize);
+			_ThisDeallocateUnchecked();
+
+			m_pair.value.first = newArray.GetValue();
+			m_pair.value.last  = m_pair.value.first + thisSize;
+			m_pair.value.end   = m_pair.value.first + newCapacity;
+
+			return Success{};
+		}
+
+		Status _Reserve(size_t newSize) noexcept {
+			if (m_pair.value.first == nullptr && newSize > 0) {
+				size_t newCapacity = _SizeToCapacity(newSize);
+				AQUA_TRY(_Allocate(newCapacity), newArray);
+
+				m_pair.value.first = newArray.GetValue();
+				m_pair.value.last  = m_pair.value.first;
+				m_pair.value.end   = m_pair.value.first + newCapacity;
+
+				return Success{};
+			}
+			if (m_pair.value.first != nullptr && newSize > _GetCapacityUnchecked()) {
+				AQUA_TRY(_ThisReallocateNonEmpty(newSize), _);
+			}
+			return Success{};
 		}
 
 	private:
-		Expected<Success, Error> _ThisMakeGap(size_t size, size_t gapIndex, size_t gapSize) noexcept {
+		Status _ThisMakeGap(size_t size, size_t gapIndex, size_t gapSize) noexcept {
 			if (size > GetCapacity()) {
 				AQUA_TRY(_ThisGapReallocate(_SizeToCapacity(size), gapIndex, gapSize), _);
 			}
@@ -580,15 +632,27 @@ namespace aqua {
 			return (it == cbegin() && it == cend()) || (it >= cbegin() && it <= cend());
 		}
 
+		size_t _GetSizeUnchecked() const noexcept {
+			return m_pair.value.last - m_pair.value.first;
+		}
+
+		size_t _GetCapacityUnchecked() const noexcept {
+			return m_pair.value.end - m_pair.value.last;
+		}
+
 	private:
 		static size_t _SizeToCapacity(size_t size) noexcept {
 			return size + (size >> 1);
 		}
 
 	private:
-		using _StringData = typename BaseType::_StringData;
+		struct _ThisData {
+			Pointer first = nullptr;
+			Pointer last  = nullptr;
+			Pointer end   = nullptr;
+		};
 
-		_memory::_AllocatorPair<_StringData, AllocatorType> m_pair;
+		_memory::_AllocatorPair<_ThisData, AllocatorType> m_pair;
 	}; // class BasicSafeString
 
 	template <std::integral T>
@@ -617,6 +681,8 @@ namespace aqua {
 	}
 
 	StringBuffer<char, 20> ToString(unsigned long long x) noexcept;
+
+	using SafeString = BasicSafeString<char, aqua::MemorySystem::GlobalAllocator::Proxy<char>>;
 } // namespace aqua
 
 #endif // !AQUA_STRING_HEADER

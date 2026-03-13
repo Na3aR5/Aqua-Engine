@@ -3,6 +3,7 @@
 
 #include <aqua/Error.h>
 #include <aqua/engine/ForwardSystems.h>
+#include <aqua/datastructures/String.h>
 #include <aqua/datastructures/HandleSet.h>
 
 #include <cstdint>
@@ -60,6 +61,12 @@ namespace aqua {
 		}; // class IChildProcess
 
 	public:
+		~System();
+
+		static System& Get() noexcept;
+		static const System& GetConst() noexcept;
+
+	public:
 		template <typename ResourceType>
 		aqua::MemorySystem::Pointer<ResourceType> Get(Handle<ResourceType> handle) noexcept {
 			return handle.m_ptr;
@@ -87,10 +94,8 @@ namespace aqua {
 		}
 
 	public:
-		~System();
-
-		static System& Get() noexcept;
-		static const System& GetConst() noexcept;
+		// Read binary
+		Expected<aqua::SafeString, Error> ReadFile(const char* path) noexcept;
 
 	private:
 		Expected<Handle<IChildProcess>, Error> _Create(const ChildProcessCreateInfo& info) noexcept;

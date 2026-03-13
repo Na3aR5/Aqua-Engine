@@ -4,6 +4,8 @@
 #include <aqua/Assert.h>
 #include <aqua/Logger.h>
 
+#include <fstream>
+
 #if AQUA_PLATFORM_WINDOWS
 #include <Windows.h>
 
@@ -154,6 +156,29 @@ aqua::System::~System() {
 
 aqua::System& aqua::System::Get() noexcept { return *g_System; }
 const aqua::System& aqua::System::GetConst() noexcept { return *g_System; }
+
+aqua::Expected<aqua::SafeString, aqua::Error> aqua::System::ReadFile(const char* path) noexcept {
+	std::ifstream file(path, std::ios::binary);
+
+	if (!file.is_open()) {
+		return Error::FAILED_TO_OPEN_FILE;
+	}
+	file.seekg(0, std::ios::end);
+	size_t size = file.tellg();
+	file.seekg(0);
+
+	SafeString buffer;
+	AQUA_TRY(buffer.Resize(size), _);
+	file.read(buffer.GetPtr(), size);
+
+	if (!file) {
+		file.close();
+		return Error::FAILED_TO_READ;
+	}
+	file.close();
+
+	return Expected<SafeString, Error>(std::move(buffer));
+}
 
 aqua::Expected<aqua::System::Handle<aqua::System::IChildProcess>, aqua::Error> aqua::System::_Create(
 const ChildProcessCreateInfo& info) noexcept {

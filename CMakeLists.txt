@@ -23,6 +23,7 @@ add_library(Aqua STATIC
 	include/aqua/Error.h
 	include/aqua/Logger.h
 	include/aqua/System.h
+	include/aqua/Reflection.h
 
 	include/aqua/engine/Defines.h
 	include/aqua/engine/ForwardSystems.h
@@ -56,6 +57,7 @@ add_library(Aqua STATIC
 	src/Error.cpp
 	src/Logger.cpp
 	src/System.cpp
+	src/Reflection.cpp
 
 	src/Engine.cpp
 	src/MemorySystem.cpp
@@ -98,14 +100,17 @@ add_executable(AquaLogger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
 add_executable(AquaShaderCompiler
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Parser.h
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Compiler.h
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Reflection.h
 
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/ShaderCompiler.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Parser.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Compiler.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Reflection.cpp
 )
 
 target_link_libraries(AquaShaderCompiler PRIVATE glslang glslang-default-resource-limits)
 target_include_directories(AquaShaderCompiler PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_SOURCE_DIR}/utility
 	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glslang
 )

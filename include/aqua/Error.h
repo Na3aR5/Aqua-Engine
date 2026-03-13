@@ -10,6 +10,7 @@ namespace aqua {
 		// Misc
 		FAILED_TO_READ,
 		FAILED_TO_WRITE,
+		FAILED_TO_OPEN_FILE,
 
 		// Logic
 		ACCESS_DENIED,

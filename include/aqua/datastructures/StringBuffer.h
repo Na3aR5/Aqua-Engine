@@ -25,13 +25,6 @@ namespace aqua {
 		template <typename T>
 		class _StringBase {
 		protected:
-			struct _StringData {
-				T* first = nullptr;
-				T* last = nullptr;
-				T* end = nullptr;
-			};
-
-		protected:
 			static size_t _CStrLength(const T* cstr) noexcept {
 				size_t size = 0;
 				for (; cstr[size] != T(0); ++size);

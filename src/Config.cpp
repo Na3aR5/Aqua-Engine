@@ -14,7 +14,7 @@ aqua::Config::Config(const aqua::EngineInfo& info) :
 		.destination = LoggerInfo::Destination::CONSOLE,
 
 #if AQUA_PLATFORM_WINDOWS
-		.loggerExecutablePath = Literal("Logger.exe"),
+		.loggerExecutablePath = Literal("AquaLogger.exe"),
 #endif // AQUA_PLATFORM_WINDOWS
 
 		.exitCmd = Literal("/exit\n"),

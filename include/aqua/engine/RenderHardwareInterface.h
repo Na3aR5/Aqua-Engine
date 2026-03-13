@@ -8,7 +8,12 @@
 #include <aqua/engine/MemorySystem.h>
 
 namespace aqua {
-	// Render interface for all render APIs
+	class RenderPipelineCreateInfo {
+		const char* vertexShaderSourceFilePath	 = nullptr; // API specific
+		const char* fragmentShaderSourceFilePath = nullptr; // API specific
+	};
+
+	// Render interface for any render APIs
 	class RenderHardwareInterface {
 	public:
 		~RenderHardwareInterface();

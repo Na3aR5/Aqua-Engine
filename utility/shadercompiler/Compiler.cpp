@@ -1,4 +1,5 @@
 #include <shadercompiler/Compiler.h>
+#include <shadercompiler/Reflection.h>
 
 #include <glslang/Public/ResourceLimits.h>
 #include <SPIRV/GlslangToSpv.h>
@@ -75,7 +76,7 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 		if (!exist1 && !std::filesystem::exists(inInputDir)) {
 			return std::string("File ") + shader + " does not exist in filesystem";
 		}
-		const std::filesystem::path shaderSourceFile = exist1 ?
+		std::filesystem::path shaderSourceFile = exist1 ?
 			std::filesystem::absolute(shader) : inInputDir;
 
 		auto [readSuccess, source] = ReadFile(shaderSourceFile);
@@ -108,8 +109,17 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 			*program.getIntermediate(stage),
 			spirv
 		);
-		_CreateSprivShaderFile(shaderSourceFile.string(), spirv);
-
+		if (!_CreateSprivShaderFile(shaderSourceFile.string(), spirv)) {
+			return std::string("Failed to create .spv file for ") + shaderSourceFile.string();
+		}
+		aqua::ShaderReflection reflection = reflect::MakeReflection(program);
+		if (reflection.incomplete) {
+			return std::string("Failed to create shader reflection for ") + shaderSourceFile.string();
+		}
+		std::string writeReflectErrofInfo = reflect::WriteShaderReflection(shaderSourceFile += ".refl", reflection);
+		if (!writeReflectErrofInfo.empty()) {
+			return writeReflectErrofInfo;
+		}
 		std::cout << " - Compiled " << shaderSourceFile << '\n';
 	}
 	return {};
