@@ -23,11 +23,13 @@ namespace {
 	};
 	const char* FLAG_TO_STRING[(int)Flag::FLAG_COUNT] = {
 		"-v",
-		"-lang"
+		"-lang",
+		"-api"
 	};
 	const char* FLAG_TO_DESC[(int)Flag::FLAG_COUNT] = {
 		"get value",
-		"shaders source language"
+		"shaders source language",
+		"set API for which shaders are compiling"
 	};
 
 	const std::map<std::string, parser::CommandReq::MapType> COMMANDS = {
@@ -59,7 +61,7 @@ namespace {
 		{ "compile", parser::CommandReq::MapType {
 			.cmd		  = Command::COMPILE,
 			.states		  = CommandReq::State::PARAM_INFINITE_BIT,
-			.enabledFlags = std::set<Flag>({ Flag::SHADER_LANG }),
+			.enabledFlags = std::set<Flag>({ Flag::SHADER_LANG, Flag::API }),
 			.paramTypes   = std::vector<ParamType>({ ParamType::STRING })
 		}},
 	};
@@ -73,6 +75,11 @@ namespace {
 		{ "-lang", FlagReq::MapType {
 			.flag		= Flag::SHADER_LANG,
 			.states		= FlagReq::EXECUTE_ORDER_DOES_NOT_MATTER_BIT,
+			.paramTypes = std::vector<ParamType>({ ParamType::STRING })
+		}},
+		{ "-api", FlagReq::MapType {
+			.flag = Flag::API,
+			.states = FlagReq::EXECUTE_ORDER_DOES_NOT_MATTER_BIT,
 			.paramTypes = std::vector<ParamType>({ ParamType::STRING })
 		}}
 	};

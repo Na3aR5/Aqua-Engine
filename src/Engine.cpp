@@ -15,7 +15,7 @@ m_logger(m_config, status),
 m_eventSystem(status),
 m_windowSystem(m_config, status),
 m_layerSystem(status),
-m_RHI(m_config, status) {
+m_RHI(m_config, info.renderAPIinfo, status) {
 	AQUA_ASSERT(g_Engine == nullptr, Literal("Attempt to create another instance of Engine"));
 
 	if (g_Engine != nullptr) {

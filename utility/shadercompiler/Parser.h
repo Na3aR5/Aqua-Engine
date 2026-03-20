@@ -27,6 +27,7 @@ namespace parser {
 	enum class Flag {
 		VALUE,
 		SHADER_LANG,
+		API,
 
 		FLAG_COUNT
 	};

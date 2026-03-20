@@ -148,7 +148,7 @@ namespace aqua {
 		template <typename ... Types>
 		[[nodiscard]] Status EmplaceBack(Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
-			AQUA_TRY(Reserve(1), _);
+			AQUA_TRY(Reserve(1));
 
 			new (m_pair.value.last++) ValueType(std::forward<Types>(args)...);
 			return Success{};
@@ -175,7 +175,7 @@ namespace aqua {
 		// Copy 'count' times 'value' object to the end
 		[[nodiscard]] Status Push(size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
-			AQUA_TRY(Reserve(count), _);
+			AQUA_TRY(Reserve(count));
 
 			std::fill(m_pair.value.last, m_pair.value.first + (_GetSizeUnchecked() + count), value);
 			m_pair.value.last += count;
@@ -191,7 +191,7 @@ namespace aqua {
 				 std::is_nothrow_copy_assignable_v<ValueType>)) {
 			size_t rangeSize = std::distance(rangeBegin, rangeEnd);
 
-			AQUA_TRY(Reserve(rangeSize), _);
+			AQUA_TRY(Reserve(rangeSize));
 
 			_CopyIteratorRange(m_pair.value.last, rangeBegin, rangeEnd);
 			m_pair.value.last += rangeSize;
@@ -234,7 +234,7 @@ namespace aqua {
 			}
 			size_t gapIndex = where - cbegin();
 
-			AQUA_TRY(_ThisMakeGap(_GetSizeUnchecked() + 1, gapIndex, 1), _);
+			AQUA_TRY(_ThisMakeGap(_GetSizeUnchecked() + 1, gapIndex, 1));
 
 			Pointer wherePtr = m_pair.value.first + gapIndex;
 			new (wherePtr) ValueType(std::forward<Types>(args)...);
@@ -267,7 +267,7 @@ namespace aqua {
 			}
 			size_t gapIndex = where - cbegin();
 
-			AQUA_TRY(_ThisMakeGap(_GetSizeUnchecked() + count, gapIndex, count), _);
+			AQUA_TRY(_ThisMakeGap(_GetSizeUnchecked() + count, gapIndex, count));
 
 			Pointer wherePtr = m_pair.value.first + gapIndex;
 			Pointer whereEnd = wherePtr + count;
@@ -316,12 +316,12 @@ namespace aqua {
 		// Extend capacity to make sure that 'count' elements can be added without reallocation
 		[[nodiscard]] Status Reserve(size_t count) noexcept {
 			if (m_pair.value.first == nullptr && count > 0) {
-				AQUA_TRY(_ThisReallocate(count), _);
+				AQUA_TRY(_ThisReallocate(count));
 				return Success{};
 			}
 			size_t thisSize = _GetSizeUnchecked();
 			if (m_pair.value.first != nullptr && thisSize + count > _GetCapacityUnchecked()) {
-				AQUA_TRY(_ThisReallocate(thisSize + count), _);
+				AQUA_TRY(_ThisReallocate(thisSize + count));
 			}
 			return Success{};
 		}
@@ -335,7 +335,7 @@ namespace aqua {
 				return Success{};
 			}
 			if (newSize >= thisSize) {
-				AQUA_TRY(_Reserve(newSize), _);
+				AQUA_TRY(_Reserve(newSize));
 
 				Pointer& rangeBegin = m_pair.value.last;
 				Pointer rangeEnd = m_pair.value.first + newSize;
@@ -483,7 +483,7 @@ namespace aqua {
 			}
 
 			if (m_pair.value.first != nullptr && newSize > _GetCapacityUnchecked()) {
-				AQUA_TRY(_ThisReallocateNonEmpty(newSize), _);
+				AQUA_TRY(_ThisReallocateNonEmpty(newSize));
 			}
 			return Success{};
 		}
@@ -512,32 +512,32 @@ namespace aqua {
 
 	private:
 		void _Move(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
-		requires(std::is_nothrow_move_assignable_v<ValueType>) {
-			if constexpr (std::is_trivially_move_assignable_v<ValueType>) {
+		requires(std::is_nothrow_move_constructible_v<ValueType>) {
+			if constexpr (std::is_trivially_move_constructible_v<ValueType>) {
 				std::memcpy(dest, srcBegin, sizeof(ValueType) * (srcEnd - srcBegin));
 			}
 			else {
 				while (srcBegin != srcEnd) {
-					*dest = std::move(*srcBegin);
+					new (dest) ValueType(std::move(*srcBegin));
 					++dest, ++srcBegin;
 				}
 			}
 		}
 
 		void _Move(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
-		requires(!std::is_nothrow_move_assignable_v<ValueType>) {
+		requires(!std::is_nothrow_move_constructible_v<ValueType>) {
 			_Copy(dest, srcBegin, srcEnd);
 			_DestroyRange(srcBegin, srcEnd);
 		}
 
 		void _Copy(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
-		requires(std::is_nothrow_copy_assignable_v<ValueType>) {
-			if constexpr (std::is_trivially_copy_assignable_v<ValueType>) {
+		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
+			if constexpr (std::is_trivially_copy_constructible_v<ValueType>) {
 				std::memcpy(dest, srcBegin, sizeof(ValueType) * (srcEnd - srcBegin));
 			}
 			else {
 				while (srcBegin != srcEnd) {
-					*dest = *srcBegin;
+					new (dest) ValueType(*srcBegin);
 					++dest, ++srcBegin;
 				}
 			}
@@ -545,30 +545,30 @@ namespace aqua {
 
 		// Assuming dest > srcBegin
 		void _MoveBackwards(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
-		requires(std::is_nothrow_move_assignable_v<ValueType>) {
-			if constexpr (std::is_trivially_move_assignable_v<ValueType>) {
+		requires(std::is_nothrow_move_constructible_v<ValueType>) {
+			if constexpr (std::is_trivially_move_constructible_v<ValueType>) {
 				std::memmove(dest, srcBegin, sizeof(ValueType) * (srcEnd - srcBegin));
 			}
 			else {
 				dest += (srcEnd - srcBegin);
 				while (srcEnd >= srcBegin) {
-					*--dest = std::move(*--srcEnd);
+					new (--dest) ValueType(std::move(--*srcEnd));
 				}
 			}
 		}
 
 		void _MoveBackwards(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
-		requires(!std::is_nothrow_copy_assignable_v<ValueType>) { _CopyBackwards(dest, srcBegin, srcEnd); }
+		requires(!std::is_nothrow_move_constructible_v<ValueType>) { _CopyBackwards(dest, srcBegin, srcEnd); }
 
 		void _CopyBackwards(Pointer dest, Pointer srcBegin, Pointer srcEnd) noexcept
 		requires(!std::is_nothrow_copy_constructible_v<ValueType>) {
-			if constexpr (std::is_trivially_copy_assignable_v<ValueType>) {
+			if constexpr (std::is_trivially_copy_constructible_v<ValueType>) {
 				std::memmove(dest, srcBegin, sizeof(ValueType) * (srcEnd - srcBegin));
 			}
 			else {
 				dest += (srcEnd - srcBegin);
 				while (srcEnd >= srcBegin) {
-					*--dest = *--srcEnd;
+					new (--dest) ValueType(--*srcBegin);
 				}
 			}
 		}

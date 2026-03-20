@@ -12,6 +12,10 @@ namespace compiler {
 			GLSL
 		};
 
+		enum API {
+			VULKAN
+		};
+
 	public:
 		Compiler();
 		~Compiler();
@@ -23,12 +27,12 @@ namespace compiler {
 		bool SetInputDirectory(const std::string& path);
 		bool SetOutputDirectory(const std::string& path);
 
-		std::string Compile(Lang lang, const std::vector<std::string>& shaders);
+		std::string Compile(Lang lang, API api, const std::vector<std::string>& shaders);
 
 	private:
-		std::pair<std::string, EShLanguage> _DeduceShaderStage(const std::string& shader) const;
+		std::pair<std::string, EShLanguage> _DeduceShaderStage(const std::filesystem::path& shader) const;
 		std::pair<bool, int> _DeduceShaderVersion(const std::string& source) const;
-		bool _CreateSprivShaderFile(const std::string& path, const std::vector<uint32_t>& spirv) const;
+		bool _CreateSpirvShaderFile(const std::filesystem::path& path, const std::vector<uint32_t>& spirv) const;
 
 	private:
 		std::filesystem::path m_inputDirectory  = std::filesystem::current_path();
@@ -36,6 +40,7 @@ namespace compiler {
 	};
 
 	const std::map<std::string, Compiler::Lang>& GetShaderLangMap();
+	const std::map<std::string, Compiler::API>& GetShaderAPIMap();
 }
 
 #endif // !AQUA_SHADER_COMPILER_COMPILER_HEADER

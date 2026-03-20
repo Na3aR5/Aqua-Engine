@@ -105,16 +105,26 @@ int main() {
 		},
 		[&compiler](const parser::CommandParser::ParseResult& parseResult) { // compile
 			compiler::Compiler::Lang lang = compiler::Compiler::GLSL;
+			compiler::Compiler::API  api  = compiler::Compiler::VULKAN;
 
 			auto executeFlag = [&](const parser::FlagInfo& flag) {
 				switch (flag.req.flag) {
 					case parser::Flag::SHADER_LANG: {
 						auto langIt = compiler::GetShaderLangMap().find(flag.params[0]);
 						if (langIt == compiler::GetShaderLangMap().cend()) {
-							std::cout << "Unknown shader language '" << langIt->first << "'!\n";
+							std::cout << "Unknown shader language '" << flag.params[0] << "'!\n";
 							return;
 						}
 						lang = langIt->second;
+						break;
+					}
+					case parser::Flag::API: {
+						auto apiIt = compiler::GetShaderAPIMap().find(flag.params[0]);
+						if (apiIt == compiler::GetShaderAPIMap().cend()) {
+							std::cout << "Unknown graphics API '" << flag.params[0] << "'!\n";
+							return;
+						}
+						api = apiIt->second;
 						break;
 					}
 				}
@@ -124,7 +134,7 @@ int main() {
 					executeFlag(flag);
 				}
 			}
-			std::string errorInfo = compiler.Compile(lang, parseResult.cmdInfo.params);
+			std::string errorInfo = compiler.Compile(lang, api, parseResult.cmdInfo.params);
 			if (!errorInfo.empty()) {
 				std::cout << errorInfo << '\n';
 				return;

@@ -4,7 +4,7 @@
 #include <aqua/Build.h>
 #include <aqua/Error.h>
 #include <aqua/Assert.h>
-#include <aqua/engine/Defines.h>
+// #include <aqua/engine/Defines.h>
 #include <aqua/engine/ForwardSystems.h>
 
 #include <new>
@@ -410,7 +410,7 @@ namespace aqua {
 	}; // class DebugPointer<void>
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
-	// System for managing heap memory, which Engine needs
+	// System for managing heap memory requsted by engine
 	class MemorySystem {
 	public:
 #if AQUA_DEBUG_ENABLE_REFERENCE_COUNT

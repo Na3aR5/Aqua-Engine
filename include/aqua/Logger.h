@@ -155,12 +155,12 @@ namespace aqua {
 				inline Argument& operator=(T x) { ll = x; return *this; }
 				inline Argument& operator=(unsigned long long x) { ull = x; return *this; }
 				inline Argument& operator=(double x) { dbl = x; return *this; }
-				inline Argument& operator=(const StringLiteralPointer& s) { str = s; return *this; }
+				inline Argument& operator=(const char* s) { str = s; return *this; }
 
-				long long		     ll;
-				unsigned long long   ull;
-				double               dbl;
-				StringLiteralPointer str;
+				long long		   ll;
+				unsigned long long ull;
+				double             dbl;
+				const char*		   str;
 			};
 
 		public:
@@ -193,6 +193,9 @@ namespace aqua {
 		static uint16_t _ForwardType(const StringLiteralPointer&) noexcept {
 			return _Packet::ArgumentType::STRING;
 		}
+		static uint16_t _ForwardType(const char*) noexcept {
+			return _Packet::ArgumentType::STRING;
+		}
 
 		template <std::integral T>
 		static long long _ForwardArg(T v) noexcept {
@@ -206,11 +209,14 @@ namespace aqua {
 		}
 
 		template <size_t Size>
-		static StringLiteralPointer _ForwardArg(StringLiteral<Size> literal) noexcept {
-			return StringLiteralPointer(literal);
+		static const char* _ForwardArg(StringLiteral<Size> literal) noexcept {
+			return literal.GetPtr();
 		}
-		static StringLiteralPointer _ForwardArg(const StringLiteralPointer& literal) noexcept {
-			return literal;
+		static const char* _ForwardArg(const StringLiteralPointer& literal) noexcept {
+			return literal.GetPtr();
+		}
+		static const char* _ForwardArg(const char* cstr) noexcept {
+			return cstr;
 		}
 
 		template <typename ... Types>

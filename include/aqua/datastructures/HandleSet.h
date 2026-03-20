@@ -85,9 +85,9 @@ namespace aqua {
 
 				return Handle(valueID, m_valueIndices[valueID].GetGeneration());
 			}
-			AQUA_TRY(m_values.EmplaceBack(std::forward<Types>(args)...), _1);
-			AQUA_TRY(m_valueIndices.EmplaceBack(valueIndex, 0), _2);
-			AQUA_TRY(m_indexToId.EmplaceBack(valueIndex), _3);
+			AQUA_TRY(m_values.EmplaceBack(std::forward<Types>(args)...));
+			AQUA_TRY(m_valueIndices.EmplaceBack(valueIndex, 0));
+			AQUA_TRY(m_indexToId.EmplaceBack(valueIndex));
 
 			return Handle(valueIndex, 0);
 		}

@@ -1,6 +1,8 @@
 #include <aqua/pch.h>
 #include <aqua/datastructures/String.h>
 
+#include <cstdlib>
+
 aqua::StringBuffer<char, 20> aqua::ToString(unsigned long long x) noexcept {
 	StringBuffer<char, 20> result;
 

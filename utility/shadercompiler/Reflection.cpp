@@ -1,23 +1,40 @@
 #include <shadercompiler/Reflection.h>
 #include <glslang/Include/Types.h>
+
+#include <map>
 #include <fstream>
+
+namespace {
+	uint32_t ConvertStages(EShLanguageMask stages) noexcept {
+		uint32_t convertedStages = 0;
+		if (stages & EShLanguageMask::EShLangVertexMask) {
+			convertedStages |= (uint32_t)aqua::ShaderReflection::Stage::VERTEX;
+		}
+		if (stages & EShLanguageMask::EShLangFragmentMask) {
+			convertedStages |= (uint32_t)aqua::ShaderReflection::Stage::FRAGMENT;
+		}
+		return convertedStages;
+	}
+}
 
 aqua::ShaderReflection reflect::MakeReflection(glslang::TProgram& program) {
 	aqua::ShaderReflection reflection{};
 
 	program.buildReflection();
 	{
+		using DescriptorBindingArrayType = decltype(reflection.descriptorSets[0].bindings);
+
+		std::map<uint32_t, DescriptorBindingArrayType> uniqueDescriptorSets;
 		int descriptorBlockCount = program.getNumUniformBlocks();
 
-		aqua::Status status = reflection.descriptorBindings.Reserve(descriptorBlockCount);
-		if (!status.IsSuccess()) { return reflection; }
+		aqua::Status status = reflection.descriptorSets.Reserve(descriptorBlockCount);
+		if (!status.IsSuccess()) return reflection;
 
 		status = reflection.pushConstants.Reserve(descriptorBlockCount);
-		if (!status.IsSuccess()) { return reflection; }
+		if (!status.IsSuccess()) return reflection;
 
 		for (int i = 0; i < descriptorBlockCount; ++i) {
 			const auto& block = program.getUniformBlock(i);
-
 			if (block.getType()->getQualifier().layoutPushConstant) {
 				aqua::ShaderReflection::PushConstant pushConstant{};
 				pushConstant.offset = (uint32_t)block.offset;
@@ -26,15 +43,38 @@ aqua::ShaderReflection reflect::MakeReflection(glslang::TProgram& program) {
 				reflection.pushConstants.EmplaceBackUnchecked(pushConstant);
 				continue;
 			}
+			uint32_t layoutSet = block.getType()->getQualifier().layoutSet;
+			auto setIt = uniqueDescriptorSets.find(layoutSet);
+			if (setIt == uniqueDescriptorSets.cend()) {
+				size_t setIndex = reflection.descriptorSets.GetSize();
+				auto [it, res] = uniqueDescriptorSets.emplace(layoutSet, DescriptorBindingArrayType());
+				if (!res) {
+					return reflection;
+				}
+				setIt = it;
+			}
 			aqua::ShaderReflection::DescriptorBinding binding{};
 			binding.binding = (uint32_t)block.getBinding();
-			binding.set     = block.getType()->getQualifier().layoutSet;
+			binding.set     = layoutSet;
 			binding.bytes   = (uint32_t)block.size;
+			binding.stages  = ConvertStages(program.getUniformStages(i));
 
-			if (block.getType()->getQualifier().storage == glslang::EvqBuffer) {
+			if (block.getType()->getBasicType() == glslang::EbtBlock) {
 				binding.type = aqua::ShaderReflection::UNIFORM_BUFFER;
 			}
-			reflection.descriptorBindings.EmplaceBackUnchecked(binding);
+			uint32_t count = 1;
+			if (block.getType()->isArray()) {
+				count = block.getType()->getArraySizes()->getDimSize(0);
+			}
+			binding.count = count;
+			if (!setIt->second.EmplaceBack(binding).IsSuccess()) {
+				return reflection;
+			}
+		}
+		for (auto it = uniqueDescriptorSets.begin(); it != uniqueDescriptorSets.end(); ++it) {
+			reflection.descriptorSets.EmplaceBackUnchecked();
+			reflection.descriptorSets.Last().set = it->first;
+			reflection.descriptorSets.Last().bindings = std::move(it->second);
 		}
 	}
 	{
@@ -65,22 +105,28 @@ std::string reflect::WriteShaderReflection(const std::filesystem::path& path, co
 		return std::string("Failed to write file ") + path.string();
 	}
 	{
-		size_t vertexLayoutCount = reflection.vertexLayouts.GetSize();
-		file.write((char*)&vertexLayoutCount, sizeof(size_t));
+		uint32_t vertexLayoutCount = (uint32_t)reflection.vertexLayouts.GetSize();
+		file.write((const char*)&vertexLayoutCount, sizeof(uint32_t));
 		for (const aqua::ShaderReflection::VertexLayout layout : reflection.vertexLayouts) {
 			file.write((const char*)&layout, sizeof(layout));
 		}
 	}
 	{
-		size_t descriptorBindingCount = reflection.descriptorBindings.GetSize();
-		file.write((char*)&descriptorBindingCount, sizeof(size_t));
-		for (const aqua::ShaderReflection::DescriptorBinding& binding : reflection.descriptorBindings) {
-			file.write((const char*)&binding, sizeof(binding));
+		uint32_t descriptorSetCount = reflection.descriptorSets.GetSize();
+		file.write((const char*)&descriptorSetCount, sizeof(uint32_t));
+		for (const aqua::ShaderReflection::DescriptorSet& set : reflection.descriptorSets) {
+			file.write((const char*)&set.set, sizeof(uint32_t));
+			
+			uint32_t bindingCount = (uint32_t)set.bindings.GetSize();
+			file.write((const char*)&bindingCount, sizeof(uint32_t));
+			for (const aqua::ShaderReflection::DescriptorBinding& binding : set.bindings) {
+				file.write((const char*)&binding, sizeof(binding));
+			}
 		}
 	}
 	{
-		size_t pushConstantCount = reflection.pushConstants.GetSize();
-		file.write((char*)&pushConstantCount, sizeof(size_t));
+		uint32_t pushConstantCount = reflection.pushConstants.GetSize();
+		file.write((const char*)&pushConstantCount, sizeof(uint32_t));
 		for (const aqua::ShaderReflection::PushConstant& constant : reflection.pushConstants) {
 			file.write((const char*)&constant, sizeof(constant));
 		}

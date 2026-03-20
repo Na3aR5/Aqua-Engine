@@ -22,7 +22,7 @@ namespace {
 
 const aqua::RenderHardwareInterface& aqua::RenderHardwareInterface::Get() noexcept { return *g_RHI; }
 
-aqua::RenderHardwareInterface::RenderHardwareInterface(const Config& config, Status& status) :
+aqua::RenderHardwareInterface::RenderHardwareInterface(const Config& config, const RenderAPICreateInfo& info, Status& status) :
 m_renderAPI(config.GetEngineInfo().external.renderAPI) {
 	AQUA_ASSERT(g_RHI == nullptr, Literal("Attempt to create another RHI instance"));
 
@@ -40,10 +40,16 @@ m_renderAPI(config.GetEngineInfo().external.renderAPI) {
 				status.EmplaceError(Error::FAILED_TO_ALLOCATE_MEMORY);
 				return;
 			}
-			m_API = vulkanAPI;
-			new (m_API) VulkanAPI(config, status);
+			new (vulkanAPI) VulkanAPI(config, info, status);
 
+			if (!status.IsSuccess()) {
+				vulkanAPI->~VulkanAPI();
+				MemorySystem::GlobalAllocator::Proxy<VulkanAPI>().Deallocate(vulkanAPI, 1);
+				return;
+			}
+			m_API = vulkanAPI;
 			LoadRenderHardwareInterfaceFunctions<VulkanAPI>();
+
 			break;
 		}
 #endif // AQUA_SUPPORT_VULKAN_RENDER_API

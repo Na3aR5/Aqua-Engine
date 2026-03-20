@@ -243,7 +243,7 @@ namespace aqua {
 		[[nodiscard]] Status Push(ValueType value) noexcept {
 			size_t newSize = GetSize() + 1;
 			if (newSize > GetCapacity()) {
-				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
+				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
 			}
 			*m_pair.value.last   = value;
 			*++m_pair.value.last = ValueType(0);
@@ -263,7 +263,7 @@ namespace aqua {
 			if (where == end) {
 				return Append(count, value);
 			}
-			AQUA_TRY(_ThisMakeGap(GetSize() + count, where - begin, count), _);
+			AQUA_TRY(_ThisMakeGap(GetSize() + count, where - begin, count));
 			
 			Pointer wherePtr = m_pair.value.first + (where - begin);
 			std::fill(wherePtr, wherePtr + count, value);
@@ -290,7 +290,7 @@ namespace aqua {
 			}
 			size_t    otherSize = other.GetSize();
 			ptrdiff_t gapIndex = where - begin;
-			AQUA_TRY(_ThisMakeGap(GetSize() + otherSize, gapIndex, otherSize), _);
+			AQUA_TRY(_ThisMakeGap(GetSize() + otherSize, gapIndex, otherSize));
 
 			std::memcpy(m_pair.value.first + gapIndex, other.m_pair.value.first, sizeof(ValueType) * otherSize);
 			return Success{};
@@ -313,7 +313,7 @@ namespace aqua {
 				return _AppendUnchecked(cstr, cstrSize);
 			}
 			ptrdiff_t gapIndex = where - begin;
-			AQUA_TRY(_ThisMakeGap(GetSize() + cstrSize, gapIndex, cstrSize), _);
+			AQUA_TRY(_ThisMakeGap(GetSize() + cstrSize, gapIndex, cstrSize));
 
 			std::memcpy(m_pair.value.first + gapIndex, cstr, sizeof(ValueType) * cstrSize);
 			return Success{};
@@ -336,7 +336,7 @@ namespace aqua {
 				return _AppendUnchecked(rangeBegin, rangeEnd, size);
 			}
 			ptrdiff_t gapIndex = where - begin;
-			AQUA_TRY(_ThisMakeGap(GetSize() + size, gapIndex, size), _);
+			AQUA_TRY(_ThisMakeGap(GetSize() + size, gapIndex, size));
 
 			Pointer dest = m_pair.value.first + gapIndex;
 			while (rangeBegin != rangeEnd) {
@@ -353,7 +353,7 @@ namespace aqua {
 				return Success{};
 			}
 			if (newSize > thisSize) {
-				AQUA_TRY(_Reserve(newSize), _);
+				AQUA_TRY(_Reserve(newSize));
 				std::memset(m_pair.value.last, (int)value, sizeof(ValueType) * (newSize - thisSize));
 				m_pair.value.last += (newSize - thisSize);
 			}
@@ -441,7 +441,7 @@ namespace aqua {
 			size_t newSize   = thisSize + otherSize;
 
 			if (newSize > GetCapacity()) {
-				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
+				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
 			}
 			std::memcpy(m_pair.value.first + thisSize, other.m_pair.value.first, sizeof(ValueType) * otherSize);
 			m_pair.value.last  = m_pair.value.first + newSize;
@@ -455,7 +455,7 @@ namespace aqua {
 			size_t newSize  = thisSize + size;
 
 			if (newSize > GetCapacity()) {
-				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
+				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
 			}
 			std::memcpy(m_pair.value.first + thisSize, cstr, sizeof(ValueType) * (size + 1));
 			m_pair.value.last = m_pair.value.first + newSize;
@@ -468,7 +468,7 @@ namespace aqua {
 			size_t newSize  = thisSize + count;
 
 			if (newSize > GetCapacity()) {
-				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
+				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
 			}
 			std::fill(m_pair.value.first + thisSize, m_pair.value.first + newSize, value);
 			m_pair.value.last  = m_pair.value.first + newSize;
@@ -483,7 +483,7 @@ namespace aqua {
 			size_t newSize  = thisSize + size;
 
 			if (newSize > GetCapacity()) {
-				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)), _);
+				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
 			}
 			Pointer dest = m_pair.value.first + thisSize;
 			while (rangeBegin != rangeEnd) {
@@ -570,13 +570,13 @@ namespace aqua {
 
 		Status _ThisReallocateNonEmpty(size_t newSize) noexcept {
 			size_t newCapacity = _SizeToCapacity(newSize);
-			AQUA_TRY(_Allocate(newCapacity), newArray);
+			AQUA_TRY(_Allocate(newCapacity), ptr);
 
 			size_t thisSize = _GetSizeUnchecked();
-			std::memcpy(newArray.GetValue(), m_pair.value.first, sizeof(ValueType) * thisSize);
+			std::memcpy(ptr.GetValue(), m_pair.value.first, sizeof(ValueType) * thisSize);
 			_ThisDeallocateUnchecked();
 
-			m_pair.value.first = newArray.GetValue();
+			m_pair.value.first = ptr.GetValue();
 			m_pair.value.last  = m_pair.value.first + thisSize;
 			m_pair.value.end   = m_pair.value.first + newCapacity;
 
@@ -586,9 +586,9 @@ namespace aqua {
 		Status _Reserve(size_t newSize) noexcept {
 			if (m_pair.value.first == nullptr && newSize > 0) {
 				size_t newCapacity = _SizeToCapacity(newSize);
-				AQUA_TRY(_Allocate(newCapacity), newArray);
+				AQUA_TRY(_Allocate(newCapacity), ptr);
 
-				m_pair.value.first = newArray.GetValue();
+				m_pair.value.first = ptr.GetValue();
 				m_pair.value.last  = m_pair.value.first;
 				m_pair.value.end   = m_pair.value.first + newCapacity;
 
@@ -603,7 +603,7 @@ namespace aqua {
 	private:
 		Status _ThisMakeGap(size_t size, size_t gapIndex, size_t gapSize) noexcept {
 			if (size > GetCapacity()) {
-				AQUA_TRY(_ThisGapReallocate(_SizeToCapacity(size), gapIndex, gapSize), _);
+				AQUA_TRY(_ThisGapReallocate(_SizeToCapacity(size), gapIndex, gapSize));
 			}
 			else {
 				this->_CopyBackwards(m_pair.value.last + gapSize, m_pair.value.last,

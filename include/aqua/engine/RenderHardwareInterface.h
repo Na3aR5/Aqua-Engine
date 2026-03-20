@@ -6,13 +6,9 @@
 #include <aqua/Config.h>
 #include <aqua/engine/ForwardSystems.h>
 #include <aqua/engine/MemorySystem.h>
+#include <aqua/datastructures/Array.h>
 
 namespace aqua {
-	class RenderPipelineCreateInfo {
-		const char* vertexShaderSourceFilePath	 = nullptr; // API specific
-		const char* fragmentShaderSourceFilePath = nullptr; // API specific
-	};
-
 	// Render interface for any render APIs
 	class RenderHardwareInterface {
 	public:
@@ -31,7 +27,7 @@ namespace aqua {
 		friend class Engine;
 		friend class VulkanAPI;
 
-		RenderHardwareInterface(const Config&, Status&);
+		RenderHardwareInterface(const Config&, const RenderAPICreateInfo&, Status&);
 
 	private:
 		RenderAPI            m_renderAPI;

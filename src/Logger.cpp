@@ -157,7 +157,7 @@ int aqua::Logger::_WriteArg(char* buffer, size_t size, _Packet::ArgumentType typ
 			return sprintf_s(buffer, size, "%f", arg.dbl);
 
 		case _Packet::ArgumentType::STRING:
-			return sprintf_s(buffer, size, "%s", arg.str.GetPtr());
+			return sprintf_s(buffer, size, "%s", arg.str);
 
 		default:
 			break;

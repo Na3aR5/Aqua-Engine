@@ -47,6 +47,7 @@ namespace aqua {
 		VULKAN_FAILED_TO_CREATE_SWAPCHAIN,
 		VULKAN_FAILED_TO_CREATE_SWAPCHAIN_IMAGE_VIEW,
 		VULKAN_FAILED_TO_CREATE_RENDER_PASS,
+		VULKAN_FAILED_TO_CREATE_DESCRIPTOR_SET_LAYOUT,
 
 		VULKAN_FAILED_TO_ENUMERATE_GPUS,
 		VULKAN_FAILED_TO_ENUMERATE_GPU_EXTENSION_PROPERTIES,
@@ -356,10 +357,21 @@ namespace aqua {
 	using Status = Expected<Success, Error>;
 } // namespace aqua
 
-#define AQUA_TRY(expression, resultName) \
+#define __AQUA_TRY_PARAM(expression, resultName) \
 	auto resultName = (expression);      \
 	if (!resultName.HasValue()) {        \
 		return resultName.Unexpected();  \
 	}
+
+#define __AQUA_TRY(expression)  \
+	{auto _ = (expression);     \
+	if (!_.HasValue()) {        \
+		return _.Unexpected();  \
+	}}
+
+#define __AQUA_EXPAND_MACRO(x) x
+#define __AQUA_DEDUCE_TRY_OVERLOAD(p1, p2, NAME, ...) NAME
+
+#define AQUA_TRY(...) __AQUA_EXPAND_MACRO(__AQUA_DEDUCE_TRY_OVERLOAD(__VA_ARGS__, __AQUA_TRY_PARAM, __AQUA_TRY)(__VA_ARGS__))
 
 #endif // !AQUA_ERROR_HEADER

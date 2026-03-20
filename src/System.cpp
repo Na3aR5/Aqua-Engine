@@ -168,7 +168,7 @@ aqua::Expected<aqua::SafeString, aqua::Error> aqua::System::ReadFile(const char*
 	file.seekg(0);
 
 	SafeString buffer;
-	AQUA_TRY(buffer.Resize(size), _);
+	AQUA_TRY(buffer.Resize(size));
 	file.read(buffer.GetPtr(), size);
 
 	if (!file) {
@@ -183,7 +183,7 @@ aqua::Expected<aqua::SafeString, aqua::Error> aqua::System::ReadFile(const char*
 aqua::Expected<aqua::System::Handle<aqua::System::IChildProcess>, aqua::Error> aqua::System::_Create(
 const ChildProcessCreateInfo& info) noexcept {
 	AQUA_TRY((aqua::CreateUniqueData<ChildProcessImpl, AllocatorType<ChildProcessImpl>>()), process);
-	AQUA_TRY(process.GetValue()->Create(info), _1);
+	AQUA_TRY(process.GetValue()->Create(info));
 	aqua::MemorySystem::Pointer<IChildProcess> processPtr = process.GetValue().GetPtr();
 	AQUA_TRY(m_childProcessRegister.Emplace(std::move(process.GetValue())), registeredProcess);
 

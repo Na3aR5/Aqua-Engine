@@ -41,9 +41,9 @@ add_library(Aqua STATIC
 
 	include/aqua/utility/StringLiteral.h
 	include/aqua/utility/Memory.h
-	include/aqua/utility/Register.h
 
 	include/aqua/math/Vector.h
+	include/aqua/math/Random.h
 
 	include/aqua/datastructures/StringBuffer.h
 	include/aqua/datastructures/String.h
@@ -70,6 +70,8 @@ add_library(Aqua STATIC
 	src/VulkanAPI.cpp
 
 	src/GLFWAPI.cpp
+
+	src/Random.cpp
 
 	src/String.cpp
 	src/HandleSet.cpp

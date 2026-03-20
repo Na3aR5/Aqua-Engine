@@ -1,9 +1,0 @@
-#ifndef AQUA_UTILITY_REGISTER_HEADER
-#define AQUA_UTILITY_REGISTER_HEADER
-
-// in future
-namespace aqua {
-	
-}
-
-#endif // !AQUA_UTILITY_REGISTER_HEADER

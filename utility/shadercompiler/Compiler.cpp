@@ -13,6 +13,31 @@ namespace {
 	const std::map<std::string, compiler::Compiler::Lang> SHADER_LANGS = {
 		{ "glsl", compiler::Compiler::GLSL }
 	};
+
+	const std::map<std::string, compiler::Compiler::API> SHADER_API = {
+		{ "vulkan", compiler::Compiler::VULKAN }
+	};
+
+	void SpecifyShader(compiler::Compiler::Lang lang, compiler::Compiler::API api,
+	int version, EShLanguage stage, glslang::TShader& shader) noexcept {
+		glslang::EShSource source;
+		switch (lang) {
+			case compiler::Compiler::GLSL:
+				source = glslang::EShSourceGlsl;
+				break;
+
+			default:
+				source = glslang::EShSourceNone;
+				break;
+		}
+		switch (api) {
+			case compiler::Compiler::VULKAN:
+				shader.setEnvInput(source, stage, glslang::EShClientVulkan, version);
+				shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_0);
+				shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_0);
+				break;
+		}
+	}
 }
 
 namespace {
@@ -69,10 +94,11 @@ bool compiler::Compiler::SetOutputDirectory(const std::string& path) {
 	return true;
 }
 
-std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string>& shaders) {
+std::string compiler::Compiler::Compile(Lang lang, API api, const std::vector<std::string>& shaders) {
 	for (const std::string& shader : shaders) {
 		bool exist1 = std::filesystem::exists(shader);
 		std::string inInputDir = (m_inputDirectory / shader).string();
+
 		if (!exist1 && !std::filesystem::exists(inInputDir)) {
 			return std::string("File ") + shader + " does not exist in filesystem";
 		}
@@ -83,7 +109,7 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 		if (!readSuccess) {
 			return std::string("Failed to read ") + shaderSourceFile.string();
 		}
-		auto [stageErrorInfo, stage] = _DeduceShaderStage(shaderSourceFile.string());
+		auto [stageErrorInfo, stage] = _DeduceShaderStage(shaderSourceFile);
 		if (!stageErrorInfo.empty()) {
 			return stageErrorInfo;
 		}
@@ -95,6 +121,7 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 		if (!versionSuccess) {
 			return std::string("Failed to deduce shader version");
 		}
+		SpecifyShader(lang, api, version, stage, compiledShader);
 		if (!compiledShader.parse(g_ShaderResourceLimits, version, false, EShMsgDefault)) {
 			return compiledShader.getInfoLog();
 		}
@@ -109,7 +136,7 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 			*program.getIntermediate(stage),
 			spirv
 		);
-		if (!_CreateSprivShaderFile(shaderSourceFile.string(), spirv)) {
+		if (!_CreateSpirvShaderFile(shaderSourceFile, spirv)) {
 			return std::string("Failed to create .spv file for ") + shaderSourceFile.string();
 		}
 		aqua::ShaderReflection reflection = reflect::MakeReflection(program);
@@ -125,8 +152,8 @@ std::string compiler::Compiler::Compile(Lang lang, const std::vector<std::string
 	return {};
 }
 
-std::pair<std::string, EShLanguage> compiler::Compiler::_DeduceShaderStage(const std::string& shader) const {
-	auto shaderExtension = std::filesystem::path(shader).extension();
+std::pair<std::string, EShLanguage> compiler::Compiler::_DeduceShaderStage(const std::filesystem::path& shader) const {
+	const std::filesystem::path& shaderExtension = shader.extension();
 	if (shaderExtension.compare(".vert") == 0) {
 		return std::pair<std::string, EShLanguage>({}, EShLanguage::EShLangVertex);
 	}
@@ -150,7 +177,7 @@ std::pair<bool, int> compiler::Compiler::_DeduceShaderVersion(const std::string&
 	if (pos >= source.size()) {
 		return std::pair<bool, int>(false, -1);
 	}
-	int version = -1;
+	int version = 0;
 	try {
 		version = std::stoi(source.substr(pos, 20));
 	}
@@ -160,10 +187,11 @@ std::pair<bool, int> compiler::Compiler::_DeduceShaderVersion(const std::string&
 	return std::pair<bool, int>(true, version);
 }
 
-bool compiler::Compiler::_CreateSprivShaderFile(const std::string& pathStr, const std::vector<uint32_t>& spirv) const {
-	std::filesystem::path writePath = m_outputDirectory / ((std::filesystem::path)pathStr += ".spv");
+bool compiler::Compiler::_CreateSpirvShaderFile(const std::filesystem::path& path, const std::vector<uint32_t>& spirv) const {
+	std::filesystem::path filePath = path;
+	filePath = m_outputDirectory / (filePath += ".spv");
 
-	std::ofstream file(writePath, std::ios::binary);
+	std::ofstream file(filePath, std::ios::binary);
 	if (!file.is_open()) {
 		return false;
 	}
@@ -179,4 +207,8 @@ bool compiler::Compiler::_CreateSprivShaderFile(const std::string& pathStr, cons
 
 const std::map<std::string, compiler::Compiler::Lang>& compiler::GetShaderLangMap() {
 	return SHADER_LANGS;
+}
+
+const std::map<std::string, compiler::Compiler::API>& compiler::GetShaderAPIMap() {
+	return SHADER_API;
 }

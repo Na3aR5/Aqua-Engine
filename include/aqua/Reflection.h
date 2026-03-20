@@ -11,6 +11,11 @@ namespace aqua {
 		using AllocatorType = aqua::MemorySystem::NewDeleteAllocator<T>;
 
 	public:
+		enum Stage {
+			VERTEX   = 0x1,
+			FRAGMENT = 0x2
+		};
+
 		enum DescriptorType {
 			UNIFORM_BUFFER
 		};
@@ -21,10 +26,17 @@ namespace aqua {
 		};
 
 		struct DescriptorBinding {
+			uint32_t       count;
 			uint32_t	   set;
 			uint32_t	   binding;
+			uint32_t       stages;
 			DescriptorType type;
 			uint32_t	   bytes;
+		};
+
+		struct DescriptorSet {
+			uint32_t													   set;
+			SafeArray<DescriptorBinding, AllocatorType<DescriptorBinding>> bindings;
 		};
 
 		struct PushConstant {
@@ -33,10 +45,10 @@ namespace aqua {
 		};
 
 	public:
-		bool															     incomplete = true;
-		aqua::SafeArray<VertexLayout, AllocatorType<VertexLayout>>			 vertexLayouts;
-		aqua::SafeArray<DescriptorBinding, AllocatorType<DescriptorBinding>> descriptorBindings;
-		aqua::SafeArray<PushConstant, AllocatorType<PushConstant>>			 pushConstants;
+		bool													     incomplete = true;
+		aqua::SafeArray<VertexLayout, AllocatorType<VertexLayout>>	 vertexLayouts;
+		aqua::SafeArray<DescriptorSet, AllocatorType<DescriptorSet>> descriptorSets;
+		aqua::SafeArray<PushConstant, AllocatorType<PushConstant>>	 pushConstants;
 	}; // struct ShaderReflection
 
 	Expected<ShaderReflection, Error> DeserializeShaderReflection(const char* relfectionPath) noexcept;

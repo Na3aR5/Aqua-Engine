@@ -104,7 +104,7 @@ aqua::Expected<aqua::SafeArray<const char*>, aqua::Error> aqua::GLFW_API::GetVul
 	const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
 	aqua::SafeArray<const char*> extensions;
-	AQUA_TRY(extensions.Set(glfwExtensions, glfwExtensions + glfwExtensionCount), _);
+	AQUA_TRY(extensions.Set(glfwExtensions, glfwExtensions + glfwExtensionCount));
 
 	return extensions;
 #else // not supported

@@ -28,6 +28,24 @@ namespace aqua {
 		VULKAN
 	};
 
+	struct RenderPipelineCreateInfo {
+	public:
+		struct ShaderAssetInfo {
+			const char* sourcePath	   = nullptr; // API specific
+			const char* reflectionPath = nullptr;
+		};
+
+	public:
+		ShaderAssetInfo vertexShaderAsset = {};
+		ShaderAssetInfo fragmentShaderAsset = {};
+	}; // struct RenderPipelineCreateInfo
+
+	struct RenderAPICreateInfo {
+	public:
+		uint32_t                  renderPipelineCount	    = 0;
+		RenderPipelineCreateInfo* renderPipelineCreateInfos = nullptr;
+	}; // struct RenderAPICreateInfo
+
 	struct WindowSystemInfo {
 		// Required
 		const char* renderWindowTitle = nullptr;
@@ -46,7 +64,8 @@ namespace aqua {
 
 	public:
 		// Required
-		WindowSystemInfo windowSystem{};
+		WindowSystemInfo	windowSystem  = {};
+		RenderAPICreateInfo renderAPIinfo = {};
 
 		// Optional
 		RenderAPI   renderAPI		   = RenderAPI::VULKAN;
