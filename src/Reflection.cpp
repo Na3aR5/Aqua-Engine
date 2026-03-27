@@ -1,49 +1,34 @@
 #include <aqua/pch.h>
 #include <aqua/Reflection.h>
 #include <aqua/System.h>
+#include <aqua/utility/Serializer.h>
 #include <aqua/datastructures/String.h>
 
 #include <fstream>
 
-namespace {
-	template <typename ArrayType>
-	aqua::Status DeserializeArray(const char*& source, ArrayType& array) noexcept {
-		using ValueType = typename ArrayType::ValueType;
-
-		uint32_t size = *(const uint32_t*)source;
-		AQUA_TRY(array.Reserve(size));
-
-		source += sizeof(uint32_t);
-		for (uint32_t i = 0; i < size; ++i) {
-			array.EmplaceBackUnchecked(*(const ValueType*)source);
-			source += sizeof(ValueType);
-		}
-		return aqua::Success{};
-	}
-}
-
 aqua::Expected<aqua::ShaderReflection, aqua::Error> aqua::DeserializeShaderReflection(const char* path) noexcept {
 	AQUA_TRY(aqua::System::Get().ReadFile(path), source);
-	const char* sourcePtr = source.GetValue().GetPtr();
+
+	Serializer serializer;
+	serializer.SetDeserializeSource(source.GetValue().GetPtr());
 
 	ShaderReflection reflection{};
-	
-	AQUA_TRY(DeserializeArray(sourcePtr, reflection.vertexLayouts));
+	AQUA_TRY((serializer.DeserializeString<decltype(reflection.entryPointName), uint32_t>(reflection.entryPointName)));
+	AQUA_TRY((serializer.DeserializeArray<decltype(reflection.vertexLayouts), uint32_t>(reflection.vertexLayouts)));
 
-	uint32_t descriptorSetCount = *(const uint32_t*)sourcePtr;
+	uint32_t descriptorSetCount = serializer.DeserializeTrivial<uint32_t>();
 	AQUA_TRY(reflection.descriptorSets.Reserve(descriptorSetCount));
 
-	sourcePtr += sizeof(uint32_t);
 	for (uint32_t i = 0; i < descriptorSetCount; ++i) {
-		uint32_t set = *(const uint32_t*)sourcePtr;
-		sourcePtr += sizeof(uint32_t);
-
+		uint32_t set = serializer.DeserializeTrivial<uint32_t>();
 		reflection.descriptorSets.EmplaceBackUnchecked();
 		reflection.descriptorSets.Last().set = set;
 
-		DeserializeArray(sourcePtr, reflection.descriptorSets.Last().bindings);
+		AQUA_TRY((serializer.DeserializeArray<decltype(reflection.descriptorSets[0].bindings), uint32_t>(
+			reflection.descriptorSets.Last().bindings
+		)));
 	}
-	AQUA_TRY(DeserializeArray(sourcePtr, reflection.pushConstants));
+	AQUA_TRY((serializer.DeserializeArray<decltype(reflection.pushConstants), uint32_t>(reflection.pushConstants)));
 
 	reflection.incomplete = false;
 	return Expected<ShaderReflection, Error>(std::move(reflection));

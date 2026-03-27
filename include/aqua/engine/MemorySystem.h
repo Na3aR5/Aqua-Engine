@@ -424,11 +424,17 @@ namespace aqua {
 
 		template <typename T>
 		using Pointer = DebugPointer<T>;
+
+		template <typename T>
+		using ConstPointer = const DebugPointer<T>;
 #else
 		using Handle = void*;
 
 		template <typename T>
 		using Pointer = T*;
+
+		template <typename T>
+		using ConstPointer = const T*;
 #endif // AQUA_DEBUG_ENABLE_REFERENCE_COUNT
 
 	public:
@@ -436,7 +442,8 @@ namespace aqua {
 		template <typename T>
 		class NewDeleteAllocator {
 		public:
-			using Pointer = T*;
+			using Pointer	   = T*;
+			using ConstPointer = const T*;
 
 			template <typename U>
 			struct Rebind {
@@ -464,7 +471,8 @@ namespace aqua {
 			template <typename T>
 			struct Proxy {
 			public:
-				using Pointer = typename MemorySystem::template Pointer<T>;
+				using Pointer	   = typename MemorySystem::template Pointer<T>;
+				using ConstPointer = typename MemorySystem::template ConstPointer<T>;
 
 				template <typename U>
 				struct Rebind {
@@ -535,7 +543,8 @@ namespace aqua {
 			template <typename T>
 			struct Proxy {
 			public:
-				using Pointer = typename MemorySystem::template Pointer<T>;
+				using Pointer	   = typename MemorySystem::template Pointer<T>;
+				using ConstPointer = typename MemorySystem::template ConstPointer<T>;
 
 				template <typename U>
 				struct Rebind {
@@ -600,7 +609,8 @@ namespace aqua {
 			static_assert(InlineSize > 0, "aqua::MemorySystem::InlineAllocator - InlineSize must be > 0");
 
 		public:
-			using Pointer = typename MemorySystem::template Pointer<T>;
+			using Pointer	   = typename MemorySystem::template Pointer<T>;
+			using ConstPointer = typename MemorySystem::template ConstPointer<T>;
 
 			template <typename U>
 			struct Rebind {

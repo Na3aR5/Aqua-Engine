@@ -14,6 +14,7 @@ namespace aqua {
 
 		// Logic
 		ACCESS_DENIED,
+		INPUT_ARGUMENTS_ARE_INVALID,
 		ITERATOR_OR_INDEX_OUT_OF_RANGE,
 
 		// Memory

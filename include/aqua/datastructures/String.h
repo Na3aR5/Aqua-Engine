@@ -19,7 +19,7 @@ namespace aqua {
 		using ValueType		 = T;
 		using Pointer		 = typename AllocatorType::Pointer;
 		using Reference      = ValueType&;
-		using ConstPointer   = const Pointer;
+		using ConstPointer   = typename AllocatorType::ConstPointer;
 		using ConstReference = const ValueType&;
 
 		using Iterator             = Pointer;
@@ -146,6 +146,28 @@ namespace aqua {
 			std::memcpy(m_pair.value.first, cstr, sizeof(ValueType) * (cstrSize + 1));
 			m_pair.value.last = m_pair.value.first + cstrSize;
 			m_pair.value.end  = m_pair.value.first + capacity;
+
+			return Success{};
+		}
+
+		[[nodiscard]] Status Set(ConstPointer cstr, size_t count) noexcept {
+			if (cstr == nullptr && count > 0) {
+				return Error::INPUT_ARGUMENTS_ARE_INVALID;
+			}
+			if (count == 0) {
+				_ThisDeallocate();
+				return Success{};
+			}
+			size_t capacity = _SizeToCapacity(count);
+			AQUA_TRY(_Allocate(capacity + 1), ptr);
+
+			_ThisDeallocate();
+
+			m_pair.value.first = ptr.GetValue();
+			std::memcpy(m_pair.value.first, cstr, sizeof(ValueType) * count);
+			m_pair.value.last = m_pair.value.first + count;
+			m_pair.value.end = m_pair.value.first + capacity;
+			*m_pair.value.last = ValueType(0);
 
 			return Success{};
 		}

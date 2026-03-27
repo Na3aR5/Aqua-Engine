@@ -11,6 +11,7 @@
 #include <limits>
 #include <cstdlib>
 #include <cstdint>
+#include <fstream>
 #include <iterator>
 #include <algorithm>
 #include <type_traits>

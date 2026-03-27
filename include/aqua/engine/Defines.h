@@ -81,4 +81,10 @@ namespace aqua {
 	}; // struct EngineInternalInfo
 } // namespace aqua
 
+namespace aqua {
+	enum Constants {
+		MAX_RENDER_PIPELINE_SHADER_STAGE_COUNT = 2
+	}; // enum Constants
+} // namespace aqua
+
 #endif // !AQUA_DEFINES_HEADER

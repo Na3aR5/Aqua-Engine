@@ -10,11 +10,6 @@
 
 namespace {
 	aqua::VulkanAPI* g_VulkanAPI = nullptr;
-
-	struct {
-		VkAllocationCallbacks* allocator	 = nullptr;
-		VkDevice			   logicalDevice = VK_NULL_HANDLE;
-	} g_VulkanAPI_CreateContext;
 }
 
 namespace {
@@ -162,23 +157,43 @@ aqua::VulkanAPI::RenderPipeline::~RenderPipeline() {
 }
 
 aqua::Status aqua::VulkanAPI::RenderPipeline::Create(const RenderPipelineCreateInfo& info) noexcept {
-	AQUA_TRY(_CreateDescriptorSetLayouts(info));
+	ShaderReflection vertexReflection{};
+	ShaderReflection fragmentReflection{};
+	_ShaderReflections reflections{};
+
+	if (info.vertexShaderAsset.sourcePath != nullptr && info.vertexShaderAsset.reflectionPath != nullptr) {
+		AQUA_TRY(DeserializeShaderReflection(info.vertexShaderAsset.reflectionPath), expectedVertexReflection);
+		vertexReflection = std::move(expectedVertexReflection.GetValue());
+		reflections.vertex = &vertexReflection;
+	}
+	if (info.fragmentShaderAsset.sourcePath != nullptr && info.fragmentShaderAsset.reflectionPath != nullptr) {
+		AQUA_TRY(DeserializeShaderReflection(info.fragmentShaderAsset.reflectionPath), expectedFragmentReflection);
+		fragmentReflection = std::move(expectedFragmentReflection.GetValue());
+		reflections.fragment = &fragmentReflection;
+	}
+
+	AQUA_TRY(_CreateDescriptorSetLayouts(info, reflections));
+	AQUA_TRY(_CreateRenderPass(info));
+
 	return Success{};
 }
 
-aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const RenderPipelineCreateInfo& info) noexcept {
+void aqua::VulkanAPI::RenderPipeline::Destroy() noexcept {
+	for (const VkDescriptorSetLayout& layout : m_descriptorSetLayouts) {
+		vkDestroyDescriptorSetLayout(g_VulkanAPI->m_logicalDevice, layout, g_VulkanAPI->m_allocator);
+	}
+	m_descriptorSetLayouts.DeepClear();
+}
+
+aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(
+const RenderPipelineCreateInfo& info, const _ShaderReflections& reflections) noexcept {
 	// in future add set levels by update frequency
 
-	AQUA_TRY(DeserializeShaderReflection(info.vertexShaderAsset.reflectionPath), expectedVertexReflection);
-	AQUA_TRY(DeserializeShaderReflection(info.fragmentShaderAsset.reflectionPath), expectedFragmentReflection);
-	const ShaderReflection& vertexReflection   = expectedVertexReflection.GetValue();
-	const ShaderReflection& fragmentReflection = expectedFragmentReflection.GetValue();
-
-	uint32_t vertexDescriptorSetCount = (uint32_t)vertexReflection.descriptorSets.GetSize();
-	uint32_t fragmentDescriptorSetCount = (uint32_t)fragmentReflection.descriptorSets.GetSize();
+	uint32_t vertexDescriptorSetCount = (uint32_t)reflections.vertex->descriptorSets.GetSize();
+	uint32_t fragmentDescriptorSetCount = (uint32_t)reflections.fragment->descriptorSets.GetSize();
 	AQUA_TRY(m_descriptorSetLayouts.Reserve(vertexDescriptorSetCount + fragmentDescriptorSetCount));
 
-	auto EmplaceBindings = [](const decltype(vertexReflection.descriptorSets[0].bindings)& array,
+	auto EmplaceBindings = [](const decltype(reflections.vertex->descriptorSets[0].bindings)& array,
 	SafeArray< VkDescriptorSetLayoutBinding>& bindings) {
 		for (const ShaderReflection::DescriptorBinding& binding : array) {
 			VkDescriptorSetLayoutBinding descriporSetBinding{};
@@ -196,10 +211,10 @@ aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const 
 		uint32_t setIndex;
 		bool merge = false;
 
-		if (vertexReflection.descriptorSets[i].set < fragmentReflection.descriptorSets[j].set) {
+		if (reflections.vertex->descriptorSets[i].set < reflections.fragment->descriptorSets[j].set) {
 			setIndex = i++;
 		}
-		else if (vertexReflection.descriptorSets[i].set > fragmentReflection.descriptorSets[j].set) {
+		else if (reflections.vertex->descriptorSets[i].set > reflections.fragment->descriptorSets[j].set) {
 			setIndex = j++;
 		}
 		else {
@@ -207,16 +222,16 @@ aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const 
 			setIndex = i++;
 			++j;
 		}
-		uint32_t bindingCount = (uint32_t)vertexReflection.descriptorSets[setIndex].bindings.GetSize();
+		uint32_t bindingCount = (uint32_t)reflections.vertex->descriptorSets[setIndex].bindings.GetSize();
 		if (merge) {
-			bindingCount += (uint32_t)fragmentReflection.descriptorSets[setIndex].bindings.GetSize();
+			bindingCount += (uint32_t)reflections.fragment->descriptorSets[setIndex].bindings.GetSize();
 		}
 		SafeArray<VkDescriptorSetLayoutBinding> bindings;
 		AQUA_TRY(bindings.Reserve(bindingCount));
 
-		EmplaceBindings(vertexReflection.descriptorSets[setIndex].bindings, bindings);
+		EmplaceBindings(reflections.vertex->descriptorSets[setIndex].bindings, bindings);
 		if (merge) {
-			EmplaceBindings(fragmentReflection.descriptorSets[setIndex].bindings, bindings);
+			EmplaceBindings(reflections.fragment->descriptorSets[setIndex].bindings, bindings);
 		}
 		VkDescriptorSetLayoutCreateInfo createInfo{};
 		createInfo.sType		= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -224,14 +239,14 @@ aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const 
 		createInfo.pBindings    = bindings.GetPtr();
 
 		m_descriptorSetLayouts.EmplaceBackUnchecked();
-		if (vkCreateDescriptorSetLayout(g_VulkanAPI_CreateContext.logicalDevice, &createInfo,
-			g_VulkanAPI_CreateContext.allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
+		if (vkCreateDescriptorSetLayout(g_VulkanAPI->m_logicalDevice, &createInfo,
+			g_VulkanAPI->m_allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
 			return Error::VULKAN_FAILED_TO_CREATE_DESCRIPTOR_SET_LAYOUT;
 		}
 	}
 
 	auto EmplaceDescriptorSetLayouts = [this, EmplaceBindings](
-	const decltype(vertexReflection.descriptorSets)& sets, uint32_t i) -> Status {
+	const decltype(reflections.vertex->descriptorSets)& sets, uint32_t i) -> Status {
 		uint32_t setCount = sets.GetSize();
 		for (; i < setCount; ++i) {
 			uint32_t bindingCount = (uint32_t)sets[i].bindings.GetSize();
@@ -247,26 +262,113 @@ aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const 
 			createInfo.pBindings = bindings.GetPtr();
 
 			m_descriptorSetLayouts.EmplaceBackUnchecked();
-			if (vkCreateDescriptorSetLayout(g_VulkanAPI_CreateContext.logicalDevice, &createInfo,
-				g_VulkanAPI_CreateContext.allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
+			if (vkCreateDescriptorSetLayout(g_VulkanAPI->m_logicalDevice, &createInfo,
+				g_VulkanAPI->m_allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
 				return Error::VULKAN_FAILED_TO_CREATE_DESCRIPTOR_SET_LAYOUT;
 			}
 		}
 		return Success{};
 	};
-	AQUA_TRY(EmplaceDescriptorSetLayouts(vertexReflection.descriptorSets, i));
-	AQUA_TRY(EmplaceDescriptorSetLayouts(fragmentReflection.descriptorSets, j));
+	AQUA_TRY(EmplaceDescriptorSetLayouts(reflections.vertex->descriptorSets, i));
+	AQUA_TRY(EmplaceDescriptorSetLayouts(reflections.fragment->descriptorSets, j));
 
 	AQUA_LOG_VULKAN(Literal("VULKAN: {} unique descriptor set layouts are created"), m_descriptorSetLayouts.GetSize());
 
 	return Success{};
 }
 
-void aqua::VulkanAPI::RenderPipeline::Destroy() noexcept {
-	for (const VkDescriptorSetLayout& layout : m_descriptorSetLayouts) {
-		vkDestroyDescriptorSetLayout(g_VulkanAPI_CreateContext.logicalDevice, layout, g_VulkanAPI_CreateContext.allocator);
+aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateRenderPass(const RenderPipelineCreateInfo& info) noexcept {
+	VkAttachmentDescription colorAttachment{};
+	colorAttachment.format		   = g_VulkanAPI->m_swapchainImageFormat;
+	colorAttachment.samples		   = VK_SAMPLE_COUNT_1_BIT;
+	colorAttachment.loadOp	       = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	colorAttachment.storeOp		   = VK_ATTACHMENT_STORE_OP_STORE;
+	colorAttachment.stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	colorAttachment.initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+	colorAttachment.finalLayout    = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+	VkAttachmentReference colorAttachmentReference{};
+	colorAttachmentReference.attachment = 0;
+	colorAttachmentReference.layout     = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkSubpassDescription subpass{};
+	subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpass.colorAttachmentCount = 1;
+	subpass.pColorAttachments    = &colorAttachmentReference;
+
+	VkAttachmentDescription attachments[] = { colorAttachment };
+
+	VkRenderPassCreateInfo renderPassInfo{};
+	renderPassInfo.sType		   = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+	renderPassInfo.attachmentCount = 1;
+	renderPassInfo.pAttachments    = attachments;
+	renderPassInfo.subpassCount    = 1;
+	renderPassInfo.pSubpasses      = &subpass;
+
+	VkSubpassDependency subpassDependency{};
+	subpassDependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+	subpassDependency.dstSubpass    = 0;
+	subpassDependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	subpassDependency.srcAccessMask = 0;
+	subpassDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	renderPassInfo.dependencyCount = 1;
+	renderPassInfo.pDependencies   = &subpassDependency;
+
+	if (vkCreateRenderPass(g_VulkanAPI->m_logicalDevice, &renderPassInfo, g_VulkanAPI->m_allocator, &m_renderPass) != VK_SUCCESS) {
+		return Error::VULKAN_FAILED_TO_CREATE_RENDER_PASS;
 	}
-	m_descriptorSetLayouts.DeepClear();
+	AQUA_LOG_VULKAN(Literal("VULKAN: Render pass is created"));
+
+	return Success{};
+}
+
+aqua::Status aqua::VulkanAPI::RenderPipeline::_CreatePipeline(
+const RenderPipelineCreateInfo& info, const _ShaderReflections& reflections) noexcept {
+	uint32_t shaderStageCount = 0;
+	VkPipelineShaderStageCreateInfo shaderStages[aqua::MAX_RENDER_PIPELINE_SHADER_STAGE_COUNT] = {};
+
+	if (info.vertexShaderAsset.sourcePath != nullptr && info.vertexShaderAsset.reflectionPath != nullptr) {
+		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+		shaderStages[0].pName = reflections.vertex->entryPointName.GetPtr();
+
+		// shaderStages[0].module = todo
+
+		++shaderStageCount;
+	}
+
+	VkGraphicsPipelineCreateInfo pipelineInfo{};
+	pipelineInfo.sType		= VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	pipelineInfo.stageCount = _GetStageCount(info);
+	pipelineInfo.pStages    = shaderStages;
+
+	/*
+	pipelineInfo.pVertexInputState = &vertexInputInfo;
+	pipelineInfo.pInputAssemblyState = &m_info.graphicsPipelineInfos[i].inputAssemblyInfo;
+	pipelineInfo.pViewportState = &viewportStateInfo;
+	pipelineInfo.pRasterizationState = &m_info.graphicsPipelineInfos[i].rasterizerInfo;
+	pipelineInfo.pMultisampleState = &m_info.graphicsPipelineInfos[i].multisampleInfo;
+	pipelineInfo.pDepthStencilState = &depthStencil;
+	pipelineInfo.pColorBlendState = &m_info.graphicsPipelineInfos[i].colorBlendingInfo;
+	pipelineInfo.pDynamicState = &dynamicStateInfo;
+	pipelineInfo.layout = m_graphicsPipelinesLayouts[i];
+	pipelineInfo.renderPass = m_renderPass;
+	pipelineInfo.subpass = 0;
+	pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+	pipelineInfo.basePipelineIndex = -1;*/
+
+	return Success{};
+}
+
+uint32_t aqua::VulkanAPI::RenderPipeline::_GetStageCount(const RenderPipelineCreateInfo& info) const noexcept {
+	uint32_t count = 0;
+	count += (info.vertexShaderAsset.sourcePath != nullptr);
+	count += (info.fragmentShaderAsset.sourcePath != nullptr);
+
+	return count;
 }
 
 /*****************************************************************************************************************************
@@ -280,6 +382,8 @@ aqua::VulkanAPI::VulkanAPI(const Config& config, const RenderAPICreateInfo& info
 		return;
 	}
 	m_allocator = (VkAllocationCallbacks*)MemorySystem::_GetVulkanAllocationCallbacks();
+
+	g_VulkanAPI = this;
 
 	Status(VulkanAPI::*initFuncs[])(const RenderAPICreateInfo&) = {
 		&VulkanAPI::_CreateVulkanInstance,
@@ -300,8 +404,6 @@ aqua::VulkanAPI::VulkanAPI(const Config& config, const RenderAPICreateInfo& info
 		}
 		++m_initializeCount;
 	}
-
-	g_VulkanAPI = this;
 }
 
 aqua::VulkanAPI::~VulkanAPI() {
@@ -605,8 +707,6 @@ aqua::Status aqua::VulkanAPI::_CreateLogicalDevice(const RenderAPICreateInfo&) n
 	vkGetDeviceQueue(m_logicalDevice, graphicsFamily, 0, &m_graphicsQueue);
 	vkGetDeviceQueue(m_logicalDevice, presentFamily, 0, &m_presentQueue);
 
-	_LoadCreateContext();
-
 	AQUA_LOG_VULKAN(Literal("VULKAN: Logical device is created"));
 
 	return Success{};
@@ -824,20 +924,7 @@ void aqua::VulkanAPI::_Terminate() noexcept {
 	m_initializeCount = 0;
 
 	m_allocator = nullptr;
-	_UnloadCreateContext();
 	g_VulkanAPI = nullptr;
-}
-
-void aqua::VulkanAPI::_LoadCreateContext() noexcept {
-	g_VulkanAPI_CreateContext.allocator = m_allocator;
-	g_VulkanAPI_CreateContext.logicalDevice = m_logicalDevice;
-}
-
-void aqua::VulkanAPI::_UnloadCreateContext() noexcept {
-	g_VulkanAPI_CreateContext = {
-		.allocator = nullptr,
-		.logicalDevice = VK_NULL_HANDLE
-	};
 }
 
 aqua::Expected<bool, aqua::Error> aqua::VulkanAPI::_IsGPUsuitable(const GPU& gpu) const noexcept {

@@ -73,14 +73,27 @@ namespace aqua {
 			void Destroy() noexcept;
 
 		private:
-			Status _CreateDescriptorSetLayouts(const RenderPipelineCreateInfo&) noexcept;
+			struct _ShaderReflections {
+				const ShaderReflection* vertex   = nullptr;
+				const ShaderReflection* fragment = nullptr;
+			};
+
+		private:
+			Status _CreateDescriptorSetLayouts(const RenderPipelineCreateInfo&, const _ShaderReflections&) noexcept;
+			Status _CreateRenderPass(const RenderPipelineCreateInfo&) noexcept;
+			Status _CreatePipeline(const RenderPipelineCreateInfo&, const _ShaderReflections&) noexcept;
+
+			uint32_t _GetStageCount(const RenderPipelineCreateInfo&) const noexcept;
 
 		private:
 			VkPipeline						 m_pipeline		  = VK_NULL_HANDLE;
 			VkPipelineLayout			     m_pipelineLayout = VK_NULL_HANDLE;
 			VkRenderPass                     m_renderPass	  = VK_NULL_HANDLE;
 			SafeArray<VkDescriptorSetLayout> m_descriptorSetLayouts;
-		}; // class GraphicsPipeline
+		}; // class RenderPipeline
+
+	public:
+		friend class RenderPipeline;
 
 	public:
 		~VulkanAPI();
@@ -117,9 +130,6 @@ namespace aqua {
 		void _Terminate() noexcept;
 
 	private:
-		void _LoadCreateContext() noexcept;
-		void _UnloadCreateContext() noexcept;
-
 		Expected<bool, Error> _IsGPUsuitable(const GPU& gpu) const noexcept;
 		Expected<bool, Error> _CheckGPUextensionSupport(const GPU& gpu) const noexcept;
 		uint64_t _ScoreGPU(const GPU& gpu, const GPU_Properties* properties) const noexcept;

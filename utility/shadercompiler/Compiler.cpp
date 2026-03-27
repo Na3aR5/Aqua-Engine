@@ -139,7 +139,7 @@ std::string compiler::Compiler::Compile(Lang lang, API api, const std::vector<st
 		if (!_CreateSpirvShaderFile(shaderSourceFile, spirv)) {
 			return std::string("Failed to create .spv file for ") + shaderSourceFile.string();
 		}
-		aqua::ShaderReflection reflection = reflect::MakeReflection(program);
+		aqua::ShaderReflection reflection = reflect::MakeReflection(spirv.data(), spirv.size(), stage);
 		if (reflection.incomplete) {
 			return std::string("Failed to create shader reflection for ") + shaderSourceFile.string();
 		}

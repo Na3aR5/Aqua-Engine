@@ -2,6 +2,7 @@
 #define AQUA_REFLECTION_HEADER
 
 #include <aqua/datastructures/Array.h>
+#include <aqua/datastructures/String.h>
 #include <cstdint>
 
 namespace aqua {
@@ -45,10 +46,11 @@ namespace aqua {
 		};
 
 	public:
-		bool													     incomplete = true;
-		aqua::SafeArray<VertexLayout, AllocatorType<VertexLayout>>	 vertexLayouts;
-		aqua::SafeArray<DescriptorSet, AllocatorType<DescriptorSet>> descriptorSets;
-		aqua::SafeArray<PushConstant, AllocatorType<PushConstant>>	 pushConstants;
+		bool												   incomplete = true;
+		BasicSafeString<char, AllocatorType<char>>             entryPointName;
+		SafeArray<VertexLayout, AllocatorType<VertexLayout>>   vertexLayouts;
+		SafeArray<DescriptorSet, AllocatorType<DescriptorSet>> descriptorSets;
+		SafeArray<PushConstant, AllocatorType<PushConstant>>   pushConstants;
 	}; // struct ShaderReflection
 
 	Expected<ShaderReflection, Error> DeserializeShaderReflection(const char* relfectionPath) noexcept;

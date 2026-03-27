@@ -39,9 +39,6 @@ add_library(Aqua STATIC
 
 	include/aqua/engine/graphics/wapi/GLFWAPI.h
 
-	include/aqua/utility/StringLiteral.h
-	include/aqua/utility/Memory.h
-
 	include/aqua/math/Vector.h
 	include/aqua/math/Random.h
 
@@ -77,6 +74,17 @@ add_library(Aqua STATIC
 	src/HandleSet.cpp
 )
 
+add_library(AquaUtility STATIC
+	include/aqua/utility/Memory.h
+	include/aqua/utility/Serializer.h
+	include/aqua/utility/StringLiteral.h
+
+	src/Serializer.cpp
+)
+target_include_directories(AquaUtility PUBLIC
+	${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 target_precompile_headers(Aqua PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/aqua/pch.h)
 
 if(ENGINE_SUPPORT_GLFW)
@@ -92,11 +100,13 @@ else()
 endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glslang)
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/external/lib/SPIRV-Cross)
 
 target_include_directories(Aqua PUBLIC
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glfw/include
 )
+target_link_libraries(Aqua PUBLIC AquaUtility)
 
 add_executable(AquaLogger ${CMAKE_CURRENT_SOURCE_DIR}/utility/logger/Logger.cpp)
 add_executable(AquaShaderCompiler
@@ -110,11 +120,17 @@ add_executable(AquaShaderCompiler
 	${CMAKE_CURRENT_SOURCE_DIR}/utility/shadercompiler/Reflection.cpp
 )
 
-target_link_libraries(AquaShaderCompiler PRIVATE glslang glslang-default-resource-limits)
+target_link_libraries(AquaShaderCompiler PRIVATE
+	AquaUtility
+	glslang
+	glslang-default-resource-limits
+	spirv-cross-core
+)
 target_include_directories(AquaShaderCompiler PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/include
 	${CMAKE_CURRENT_SOURCE_DIR}/utility
 	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/glslang
+	${CMAKE_CURRENT_SOURCE_DIR}/external/lib/SPIRV-Cross
 )
 
 if(ENGINE_ENABLE_SANDBOX)
