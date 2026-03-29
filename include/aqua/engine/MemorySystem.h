@@ -90,7 +90,7 @@ namespace aqua {
 		using ValueType		 = T;
 		using Pointer		 = T*;
 		using Reference      = typename BaseType::template DeduceReference<T>::Reference;
-		using ConstPointer   = const Pointer;
+		using ConstPointer   = const T*;
 		using ConstReference = const Reference;
 
 	public:

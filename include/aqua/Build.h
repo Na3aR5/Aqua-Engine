@@ -9,6 +9,9 @@
 	#define AQUA_RELEASE 1
 #endif // !NDEBUG
 
+#define AQUA_SUPPORT_MAP_IMPLEMENTATION
+// #define AQUA_SUPPORT_QUEUE_IMPLEMENTATION
+
 // ------------------------------------------ Debug --------------------------------------------
 
 #define AQUA_DEBUG_ENABLE_LOG			  AQUA_DEBUG

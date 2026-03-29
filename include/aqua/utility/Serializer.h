@@ -83,7 +83,7 @@ namespace aqua {
 		Status DeserializeString(String& string) noexcept {
 			SizeT size = DeserializeTrivial<SizeT>();
 			const typename String::ValueType* stringData = (const typename String::ValueType*)m_deserializeSource;
-			string.Set(stringData, size);
+			AQUA_TRY(string.Set(stringData, size));
 
 			m_deserializeSource += sizeof(typename String::ValueType) * size;
 

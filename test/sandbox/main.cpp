@@ -1,5 +1,5 @@
 #include <aqua/engine/Engine.h>
-#include <aqua/Reflection.h>
+#include <aqua/datastructures/Tree.h>
 
 #include <memory>
 #include <iostream>
@@ -28,7 +28,7 @@ public:
 };
 
 int main() {
-	std::unique_ptr<aqua::Engine> engine;
+	/*std::unique_ptr<aqua::Engine> engine;
 
 	{
 		aqua::EngineInfo engineInfo{};
@@ -73,7 +73,17 @@ int main() {
 		return -1;
 	}
 
-	engine->MainLoop();
+	engine->MainLoop();*/
+
+	aqua::SafeRBTree<int, std::less<int>, aqua::MemorySystem::NewDeleteAllocator<int>> tree;
+
+	for (int i = 0; i < 100; ++i) {
+		tree.Emplace(i);
+	}
+
+	for (int v : tree) {
+		std::cout << v << ' ';
+	}
 
 	return 0;
 }

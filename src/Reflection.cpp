@@ -6,6 +6,8 @@
 
 #include <fstream>
 
+#include <map>
+
 aqua::Expected<aqua::ShaderReflection, aqua::Error> aqua::DeserializeShaderReflection(const char* path) noexcept {
 	AQUA_TRY(aqua::System::Get().ReadFile(path), source);
 

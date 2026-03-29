@@ -28,15 +28,21 @@ namespace aqua {
 		VULKAN
 	};
 
+	enum ShaderStage : uint16_t {
+		VERTEX_BIT   = 0x1,
+		FRAGMENT_BIT = 0x2
+	};
+
 	struct RenderPipelineCreateInfo {
 	public:
 		struct ShaderAssetInfo {
-			const char* sourcePath	   = nullptr; // API specific
+			const char* sourcePath	   = nullptr;
 			const char* reflectionPath = nullptr;
 		};
 
 	public:
-		ShaderAssetInfo vertexShaderAsset = {};
+		uint16_t		stages			    = 0;
+		ShaderAssetInfo vertexShaderAsset   = {};
 		ShaderAssetInfo fragmentShaderAsset = {};
 	}; // struct RenderPipelineCreateInfo
 

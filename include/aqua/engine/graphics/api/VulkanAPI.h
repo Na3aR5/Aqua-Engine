@@ -73,15 +73,9 @@ namespace aqua {
 			void Destroy() noexcept;
 
 		private:
-			struct _ShaderReflections {
-				const ShaderReflection* vertex   = nullptr;
-				const ShaderReflection* fragment = nullptr;
-			};
-
-		private:
-			Status _CreateDescriptorSetLayouts(const RenderPipelineCreateInfo&, const _ShaderReflections&) noexcept;
+			Status _CreateDescriptorSetLayouts(const RenderPipelineCreateInfo&) noexcept;
 			Status _CreateRenderPass(const RenderPipelineCreateInfo&) noexcept;
-			Status _CreatePipeline(const RenderPipelineCreateInfo&, const _ShaderReflections&) noexcept;
+			Status _CreatePipeline(const RenderPipelineCreateInfo&) noexcept;
 
 			uint32_t _GetStageCount(const RenderPipelineCreateInfo&) const noexcept;
 

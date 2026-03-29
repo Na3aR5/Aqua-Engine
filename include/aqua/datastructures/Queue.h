@@ -33,7 +33,7 @@ namespace aqua {
 
 namespace aqua {
 	template <typename T, size_t BufferSize>
-	requires (std::is_trivial_v<T>) // for simplicity
+	requires (std::is_trivial_v<T>)
 	class RingQueue {
 	public:
 		RingQueue() noexcept = default;

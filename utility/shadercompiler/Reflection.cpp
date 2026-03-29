@@ -10,10 +10,10 @@ namespace {
 	uint32_t ConvertStages(EShLanguageMask stages) noexcept {
 		uint32_t convertedStages = 0;
 		if (stages & EShLanguageMask::EShLangVertexMask) {
-			convertedStages |= (uint32_t)aqua::ShaderReflection::Stage::VERTEX;
+			convertedStages |= (uint32_t)aqua::ShaderStage::VERTEX_BIT;
 		}
 		if (stages & EShLanguageMask::EShLangFragmentMask) {
-			convertedStages |= (uint32_t)aqua::ShaderReflection::Stage::FRAGMENT;
+			convertedStages |= (uint32_t)aqua::ShaderStage::FRAGMENT_BIT;
 		}
 		return convertedStages;
 	}
@@ -21,10 +21,10 @@ namespace {
 	uint32_t ConvertStage(EShLanguage stage) noexcept {
 		switch (stage) {
 			case EShLanguage::EShLangVertex:
-				return (uint32_t)aqua::ShaderReflection::Stage::VERTEX;
+				return (uint32_t)aqua::ShaderStage::VERTEX_BIT;
 
 			case EShLanguage::EShLangFragment:
-				return (uint32_t)aqua::ShaderReflection::Stage::FRAGMENT;
+				return (uint32_t)aqua::ShaderStage::FRAGMENT_BIT;
 
 			default:
 				break;

@@ -109,10 +109,10 @@ namespace {
 
 	VkShaderStageFlagBits ConvertReflectionBindingShaderStages(uint32_t stages) noexcept {
 		uint32_t bits = 0;
-		if (stages & (uint32_t)aqua::ShaderReflection::Stage::VERTEX) {
+		if (stages & (uint32_t)aqua::ShaderStage::VERTEX_BIT) {
 			bits |= (uint32_t)VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		if (stages & (uint32_t)aqua::ShaderReflection::Stage::FRAGMENT) {
+		if (stages & (uint32_t)aqua::ShaderStage::FRAGMENT_BIT) {
 			bits |= (uint32_t)VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
 		return (VkShaderStageFlagBits)bits;
@@ -157,23 +157,18 @@ aqua::VulkanAPI::RenderPipeline::~RenderPipeline() {
 }
 
 aqua::Status aqua::VulkanAPI::RenderPipeline::Create(const RenderPipelineCreateInfo& info) noexcept {
-	ShaderReflection vertexReflection{};
-	ShaderReflection fragmentReflection{};
-	_ShaderReflections reflections{};
+	/*_ShaderReflections reflections{};
 
-	if (info.vertexShaderAsset.sourcePath != nullptr && info.vertexShaderAsset.reflectionPath != nullptr) {
+	if (info.stages & ShaderStage::VERTEX_BIT) {
 		AQUA_TRY(DeserializeShaderReflection(info.vertexShaderAsset.reflectionPath), expectedVertexReflection);
-		vertexReflection = std::move(expectedVertexReflection.GetValue());
-		reflections.vertex = &vertexReflection;
+		reflections.vertex = std::move(expectedVertexReflection.GetValue());
 	}
-	if (info.fragmentShaderAsset.sourcePath != nullptr && info.fragmentShaderAsset.reflectionPath != nullptr) {
+	if (info.stages & ShaderStage::FRAGMENT_BIT) {
 		AQUA_TRY(DeserializeShaderReflection(info.fragmentShaderAsset.reflectionPath), expectedFragmentReflection);
-		fragmentReflection = std::move(expectedFragmentReflection.GetValue());
-		reflections.fragment = &fragmentReflection;
-	}
-
-	AQUA_TRY(_CreateDescriptorSetLayouts(info, reflections));
-	AQUA_TRY(_CreateRenderPass(info));
+		reflections.fragment = std::move(expectedFragmentReflection.GetValue());
+	}*/
+	// AQUA_TRY(_CreateDescriptorSetLayouts(info, reflections));
+	// AQUA_TRY(_CreateRenderPass(info));
 
 	return Success{};
 }
@@ -185,95 +180,7 @@ void aqua::VulkanAPI::RenderPipeline::Destroy() noexcept {
 	m_descriptorSetLayouts.DeepClear();
 }
 
-aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(
-const RenderPipelineCreateInfo& info, const _ShaderReflections& reflections) noexcept {
-	// in future add set levels by update frequency
-
-	uint32_t vertexDescriptorSetCount = (uint32_t)reflections.vertex->descriptorSets.GetSize();
-	uint32_t fragmentDescriptorSetCount = (uint32_t)reflections.fragment->descriptorSets.GetSize();
-	AQUA_TRY(m_descriptorSetLayouts.Reserve(vertexDescriptorSetCount + fragmentDescriptorSetCount));
-
-	auto EmplaceBindings = [](const decltype(reflections.vertex->descriptorSets[0].bindings)& array,
-	SafeArray< VkDescriptorSetLayoutBinding>& bindings) {
-		for (const ShaderReflection::DescriptorBinding& binding : array) {
-			VkDescriptorSetLayoutBinding descriporSetBinding{};
-			descriporSetBinding.binding         = binding.binding;
-			descriporSetBinding.descriptorCount = binding.count;
-			descriporSetBinding.descriptorType  = ConvertReflectionDescriptorType(binding.type);
-			descriporSetBinding.stageFlags      = ConvertReflectionBindingShaderStages(binding.stages);
-
-			bindings.EmplaceBackUnchecked(descriporSetBinding);
-		}
-	};
-
-	uint32_t i = 0, j = 0;
-	while (i < vertexDescriptorSetCount && j < fragmentDescriptorSetCount) {
-		uint32_t setIndex;
-		bool merge = false;
-
-		if (reflections.vertex->descriptorSets[i].set < reflections.fragment->descriptorSets[j].set) {
-			setIndex = i++;
-		}
-		else if (reflections.vertex->descriptorSets[i].set > reflections.fragment->descriptorSets[j].set) {
-			setIndex = j++;
-		}
-		else {
-			merge = true;
-			setIndex = i++;
-			++j;
-		}
-		uint32_t bindingCount = (uint32_t)reflections.vertex->descriptorSets[setIndex].bindings.GetSize();
-		if (merge) {
-			bindingCount += (uint32_t)reflections.fragment->descriptorSets[setIndex].bindings.GetSize();
-		}
-		SafeArray<VkDescriptorSetLayoutBinding> bindings;
-		AQUA_TRY(bindings.Reserve(bindingCount));
-
-		EmplaceBindings(reflections.vertex->descriptorSets[setIndex].bindings, bindings);
-		if (merge) {
-			EmplaceBindings(reflections.fragment->descriptorSets[setIndex].bindings, bindings);
-		}
-		VkDescriptorSetLayoutCreateInfo createInfo{};
-		createInfo.sType		= VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		createInfo.bindingCount = bindingCount;
-		createInfo.pBindings    = bindings.GetPtr();
-
-		m_descriptorSetLayouts.EmplaceBackUnchecked();
-		if (vkCreateDescriptorSetLayout(g_VulkanAPI->m_logicalDevice, &createInfo,
-			g_VulkanAPI->m_allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
-			return Error::VULKAN_FAILED_TO_CREATE_DESCRIPTOR_SET_LAYOUT;
-		}
-	}
-
-	auto EmplaceDescriptorSetLayouts = [this, EmplaceBindings](
-	const decltype(reflections.vertex->descriptorSets)& sets, uint32_t i) -> Status {
-		uint32_t setCount = sets.GetSize();
-		for (; i < setCount; ++i) {
-			uint32_t bindingCount = (uint32_t)sets[i].bindings.GetSize();
-
-			SafeArray<VkDescriptorSetLayoutBinding> bindings;
-			AQUA_TRY(bindings.Reserve(bindingCount));
-
-			EmplaceBindings(sets[i].bindings, bindings);
-
-			VkDescriptorSetLayoutCreateInfo createInfo{};
-			createInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-			createInfo.bindingCount = bindingCount;
-			createInfo.pBindings = bindings.GetPtr();
-
-			m_descriptorSetLayouts.EmplaceBackUnchecked();
-			if (vkCreateDescriptorSetLayout(g_VulkanAPI->m_logicalDevice, &createInfo,
-				g_VulkanAPI->m_allocator, &m_descriptorSetLayouts.Last()) != VK_SUCCESS) {
-				return Error::VULKAN_FAILED_TO_CREATE_DESCRIPTOR_SET_LAYOUT;
-			}
-		}
-		return Success{};
-	};
-	AQUA_TRY(EmplaceDescriptorSetLayouts(reflections.vertex->descriptorSets, i));
-	AQUA_TRY(EmplaceDescriptorSetLayouts(reflections.fragment->descriptorSets, j));
-
-	AQUA_LOG_VULKAN(Literal("VULKAN: {} unique descriptor set layouts are created"), m_descriptorSetLayouts.GetSize());
-
+aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateDescriptorSetLayouts(const RenderPipelineCreateInfo& info) noexcept {
 	return Success{};
 }
 
@@ -325,16 +232,14 @@ aqua::Status aqua::VulkanAPI::RenderPipeline::_CreateRenderPass(const RenderPipe
 	return Success{};
 }
 
-aqua::Status aqua::VulkanAPI::RenderPipeline::_CreatePipeline(
-const RenderPipelineCreateInfo& info, const _ShaderReflections& reflections) noexcept {
+aqua::Status aqua::VulkanAPI::RenderPipeline::_CreatePipeline(const RenderPipelineCreateInfo& info) noexcept {
 	uint32_t shaderStageCount = 0;
 	VkPipelineShaderStageCreateInfo shaderStages[aqua::MAX_RENDER_PIPELINE_SHADER_STAGE_COUNT] = {};
 
 	if (info.vertexShaderAsset.sourcePath != nullptr && info.vertexShaderAsset.reflectionPath != nullptr) {
 		shaderStages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 		shaderStages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
-		shaderStages[0].pName = reflections.vertex->entryPointName.GetPtr();
-
+		// shaderStages[0].pName = reflections.vertex->entryPointName.GetPtr();
 		// shaderStages[0].module = todo
 
 		++shaderStageCount;

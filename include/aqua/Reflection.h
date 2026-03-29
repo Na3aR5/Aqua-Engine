@@ -1,6 +1,7 @@
 #ifndef AQUA_REFLECTION_HEADER
 #define AQUA_REFLECTION_HEADER
 
+#include <aqua/engine/Defines.h>
 #include <aqua/datastructures/Array.h>
 #include <aqua/datastructures/String.h>
 #include <cstdint>
@@ -12,11 +13,6 @@ namespace aqua {
 		using AllocatorType = aqua::MemorySystem::NewDeleteAllocator<T>;
 
 	public:
-		enum Stage {
-			VERTEX   = 0x1,
-			FRAGMENT = 0x2
-		};
-
 		enum DescriptorType {
 			UNIFORM_BUFFER
 		};

@@ -47,6 +47,7 @@ add_library(Aqua STATIC
 	include/aqua/datastructures/Array.h
 	include/aqua/datastructures/Queue.h
 	include/aqua/datastructures/HandleSet.h
+	include/aqua/datastructures/Tree.h
 
 	src/Config.cpp
 	src/CrashReport.cpp
@@ -78,6 +79,7 @@ add_library(AquaUtility STATIC
 	include/aqua/utility/Memory.h
 	include/aqua/utility/Serializer.h
 	include/aqua/utility/StringLiteral.h
+	include/aqua/utility/TemplateUtility.h
 
 	src/Serializer.cpp
 )
