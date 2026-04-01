@@ -89,10 +89,11 @@ namespace aqua {
 					reference       operator*()		  { return m_node->value; }
 					const_reference operator*() const { return m_node->value; }
 
-					pointer		  operator->()		 noexcept { return &m_node->value; }
-					const_pointer operator->() const noexcept { return &m_node->value; }
+					value_type*	      operator->()		 noexcept { return &m_node->value; }
+					const value_type* operator->() const noexcept { return &m_node->value; }
 
 					_Iterator& operator++() noexcept {
+						m_prev = m_node;
 						if (m_node->childs[Direction::RIGHT] != nullptr) {
 							m_node = _MostDirection(m_node->childs[Direction::RIGHT], Direction::LEFT);
 							return *this;
@@ -106,6 +107,11 @@ namespace aqua {
 					}
 
 					_Iterator& operator--() noexcept {
+						if (m_prev != nullptr) {
+							m_node = m_prev;
+							m_prev = nullptr;
+							return *this;
+						}
 						if (m_node == nullptr) {
 							m_node =  _MostDirection(m_root, Direction::RIGHT);
 							return *this;
@@ -142,12 +148,67 @@ namespace aqua {
 						return m_node != other.m_node && m_root == other.m_root;
 					}
 
+					operator bool() const noexcept { return m_node != nullptr; }
+
+				public:
+					_Iterator& MoveLeft() {
+						m_prev = m_node;
+						m_node = m_node->childs[Direction::LEFT];
+						return *this;
+					}
+
+					_Iterator& MoveRight() {
+						m_prev = m_node;
+						m_node = m_node->childs[Direction::RIGHT];
+						return *this;
+					}
+
 				private:
 					pointer m_root = nullptr;
+					pointer m_prev = nullptr;
 					pointer m_node = nullptr;
-				};
+				}; // class _Iterator
 			}; // class TemplateBase
 		}; // class RBTreeBase
+
+		template <typename KeyT, typename MappedT>
+		struct MapType {
+		public:
+			MapType() noexcept requires(std::is_nothrow_default_constructible_v<KeyT> &&
+			std::is_nothrow_default_constructible_v<MappedT>) : key(), value() {}
+
+			MapType(const KeyT& key, const MappedT& value) noexcept requires(std::is_nothrow_copy_constructible_v<KeyT> &&
+			std::is_nothrow_copy_constructible_v<MappedT>) : key(key), value(value) {}
+
+			MapType(const KeyT& key, const MappedT&& value) noexcept requires(std::is_nothrow_copy_constructible_v<KeyT> &&
+				std::is_nothrow_move_constructible_v<MappedT>) : key(key), value(std::move(value)) {}
+
+			MapType(const KeyT&& key, const MappedT& value) noexcept requires(std::is_nothrow_move_constructible_v<KeyT> &&
+				std::is_nothrow_copy_constructible_v<MappedT>) : key(std::move(key)), value(value) {}
+
+			MapType(const KeyT&& key, const MappedT&& value) noexcept requires(std::is_nothrow_move_constructible_v<KeyT> &&
+				std::is_nothrow_move_constructible_v<MappedT>) : key(std::move(key)), value(std::move(value)) {}
+
+		public:
+			// compare keys only
+
+			bool operator==(const MapType& other) const noexcept { return key == other.key; }
+			bool operator==(const KeyT& other) const noexcept { return key == other; }
+
+			bool operator>(const MapType& other) const noexcept { return key > other.key; }
+			bool operator<(const MapType& other) const noexcept { return key < other.key; }
+			bool operator>=(const MapType& other) const noexcept { return key >= other.key; }
+			bool operator<=(const MapType& other) const noexcept { return key <= other.key; }
+
+			bool operator>(const KeyT& other) const noexcept { return key > other; }
+			bool operator<(const KeyT& other) const noexcept { return key < other; }
+			bool operator>=(const KeyT& other) const noexcept { return key >= other; }
+			bool operator<=(const KeyT& other) const noexcept { return key <= other; }
+
+		public:
+			KeyT    key;
+			MappedT value;
+		}; // struct MapType
 	} // namespace _tree
 
 	// Nothrow red-black binary tree
@@ -186,6 +247,7 @@ namespace aqua {
 			Clear();
 			m_pair = std::move(other.m_pair);
 			other.m_pair.value = _ThisData();
+			return *this;
 		}
 
 	public:
@@ -221,11 +283,12 @@ namespace aqua {
 		}
 
 	public:
-		ConstIterator Find(const ValueType& value) const noexcept {
-			const ComparatorType& comparator = m_pair.value.GetCompressed();
+		template <typename CompareType>
+		ConstIterator Find(const CompareType& value) const noexcept {
+			const ComparatorType& comparator = GetComparator();
 			_NodePtr root = m_pair.value.value.root;
 
-			while (root) {
+			while (root != nullptr) {
 				if (value == root->value) {
 					return _MakeConstIterator(root);
 				}
@@ -243,7 +306,14 @@ namespace aqua {
 		size_t GetSize() const noexcept { return m_pair.value.value.size; }
 		size_t GetHeight() const noexcept { return this->_Height(m_pair.value.value.root); }
 
+		ComparatorType& GetComparator() noexcept { return m_pair.value.GetCompressed(); }
+		const ComparatorType& GetComparator() const noexcept { return m_pair.value.GetCompressed(); }
+
 	public:
+		Iterator      Root()			noexcept { _MakeIterator(m_pair.value.value.root); }
+		ConstIterator Root()      const noexcept { _MakeConstIterator(m_pair.value.value.root); }
+		ConstIterator ConstRoot() const noexcept { _MakeConstIterator(m_pair.value.value.root); }
+
 		Iterator begin() {
 			return _MakeIterator(this->_MostDirection(m_pair.value.value.root, _Direction::LEFT));
 		}
@@ -279,7 +349,7 @@ namespace aqua {
 				m_pair.value.value.root = node;
 				return true;
 			}
-			const ComparatorType& comparator = m_pair.value.GetCompressed();
+			const ComparatorType& comparator = GetComparator();
 			while (root) {
 				if (root->value == node->value) {
 					return false;
@@ -406,6 +476,93 @@ namespace aqua {
 
 		_memory::_AllocatorPair<_ThisDataCompressed, typename BaseType::_NodeAllocator> m_pair;
 	}; // class SafeRBTree
+} // namespace aqua
+#endif // AQUA_SUPPORT_MAP_IMPLEMENTATION
+
+#ifdef AQUA_SUPPORT_MAP_IMPLEMENTATION
+namespace aqua {
+	// Nothrow map based on red-black binary tree
+	template <typename KeyT, typename MappedT, typename Comparator = std::less<KeyT>,
+		typename Allocator = MemorySystem::GlobalAllocator::Proxy<MappedT>>
+	class SafeMap {
+	public:
+		using ValueType      = _tree::MapType<KeyT, MappedT>;
+		using AllocatorType  = typename Allocator::template Rebind<ValueType>::AllocatorType;
+
+		struct ComparatorType : private Comparator {
+		public:
+			bool operator()(const ValueType& l, const ValueType& r) const noexcept {
+				return this->Comparator::operator()(l.key, r.key);
+			}
+			bool operator()(const KeyT& l, const ValueType& r) const noexcept {
+				return this->Comparator::operator()(l, r.key);
+			}
+			bool operator()(const KeyT& l, const KeyT& r) const noexcept {
+				return this->Comparator::operator()(l, r);
+			}
+		}; // struct ComparatorType
+
+		using TreeType       = SafeRBTree<ValueType, ComparatorType, AllocatorType>;
+
+		using KeyType        = KeyT;
+		using MappedType     = MappedT;
+		using Pointer        = typename AllocatorType::Pointer;
+		using Reference      = ValueType&;
+		using ConstPointer   = typename AllocatorType::ConstPointer;
+		using ConstReference = const ValueType&;
+
+		using Iterator       = typename TreeType::Iterator;
+		using ConstIterator  = typename TreeType::ConstIterator;
+
+	public:
+		SafeMap() noexcept = default;
+		SafeMap(const SafeMap&) = delete;
+		SafeMap(SafeMap&& other) noexcept : m_tree(std::move(other.m_tree)) {}
+
+		~SafeMap() = default;
+
+		SafeMap& operator=(const SafeMap&) = delete;
+		SafeMap& operator=(SafeMap&& other) noexcept {
+			m_tree = std::move(other.m_tree);
+			return *this;
+		}
+
+	public:
+		[[nodiscard]] Expected<Iterator, Error> Emplace(KeyType&& key, MappedType&& value) noexcept {
+			return m_tree.Emplace(std::forward<KeyType>(key), std::forward<MappedType>(value));
+		}
+
+		[[nodiscard]] Expected<Iterator, Error> Insert(ValueType&& value) noexcept {
+			return m_tree.Emplace(std::forward<ValueType>(value));
+		}
+
+	public:
+		void Clear() noexcept { m_tree.Clear(); }
+
+		bool   IsEmpty() const noexcept { return m_tree.IsEmpty(); }
+		size_t GetSize() const noexcept { return m_tree.GetSize(); }
+
+	public:
+		ConstIterator Find(const KeyType& key) const noexcept {
+			return m_tree.Find(key);
+		}
+
+		bool Has(const KeyType& key) const noexcept {
+			return m_tree.Find(key) != m_tree.cend();
+		}
+
+	public:
+		Iterator      begin()        noexcept { return m_tree.begin(); }
+		ConstIterator begin()  const noexcept { return m_tree.begin(); }
+		ConstIterator cbegin() const noexcept { return m_tree.cbegin(); }
+
+		Iterator      end()        noexcept { return m_tree.end(); }
+		ConstIterator end()  const noexcept { return m_tree.end(); }
+		ConstIterator cend() const noexcept { return m_tree.cend(); }
+
+	private:
+		TreeType m_tree;
+	}; // class SafeMap
 } // namespace aqua
 #endif // AQUA_SUPPORT_MAP_IMPLEMENTATION
 

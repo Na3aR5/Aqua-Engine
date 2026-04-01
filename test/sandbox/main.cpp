@@ -75,15 +75,12 @@ int main() {
 
 	engine->MainLoop();*/
 
-	aqua::SafeRBTree<int, std::less<int>, aqua::MemorySystem::NewDeleteAllocator<int>> tree;
+	aqua::SafeMap<int, int, std::less<int>, aqua::MemorySystem::NewDeleteAllocator<int>> map;
 
-	for (int i = 0; i < 100; ++i) {
-		tree.Emplace(i);
-	}
-
-	for (int v : tree) {
-		std::cout << v << ' ';
-	}
+	map.Emplace(2, 4);
+	map.Emplace(4, 16);
+	map.Emplace(1, 1);
+	map.Emplace(3, 9);
 
 	return 0;
 }
