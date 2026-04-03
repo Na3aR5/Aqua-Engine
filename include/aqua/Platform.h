@@ -1,7 +1,7 @@
 #ifndef AQUA_PLATFORM_HEADER
 #define AQUA_PLATFORM_HEADER
 
-#if defined(WIN32) && WIN32
+#if (defined(WIN32) && WIN32) || (defined(_WIN32) && _WIN32)
 	#define AQUA_PLATFORM_WINDOWS 1
 	#define AQUA_PLATFORM_LINUX 0
 #endif // _WIN32

@@ -28,7 +28,7 @@ public:
 };
 
 int main() {
-	/*std::unique_ptr<aqua::Engine> engine;
+	std::unique_ptr<aqua::Engine> engine;
 
 	{
 		aqua::EngineInfo engineInfo{};
@@ -73,14 +73,7 @@ int main() {
 		return -1;
 	}
 
-	engine->MainLoop();*/
-
-	aqua::SafeMap<int, int, std::less<int>, aqua::MemorySystem::NewDeleteAllocator<int>> map;
-
-	map.Emplace(2, 4);
-	map.Emplace(4, 16);
-	map.Emplace(1, 1);
-	map.Emplace(3, 9);
+	engine->MainLoop();
 
 	return 0;
 }

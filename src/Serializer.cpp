@@ -16,9 +16,3 @@ aqua::Status aqua::Serializer::SetTargetFile(const char* filePath, bool clearCon
 	}
 	return Success{};
 }
-
-const char* aqua::Serializer::SetDeserializeSource(const char* source) noexcept {
-	const char* prevSource = m_deserializeSource;
-	m_deserializeSource = source;
-	return prevSource;
-}

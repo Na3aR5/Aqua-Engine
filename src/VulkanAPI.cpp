@@ -157,16 +157,8 @@ aqua::VulkanAPI::RenderPipeline::~RenderPipeline() {
 }
 
 aqua::Status aqua::VulkanAPI::RenderPipeline::Create(const RenderPipelineCreateInfo& info) noexcept {
-	/*_ShaderReflections reflections{};
-
-	if (info.stages & ShaderStage::VERTEX_BIT) {
-		AQUA_TRY(DeserializeShaderReflection(info.vertexShaderAsset.reflectionPath), expectedVertexReflection);
-		reflections.vertex = std::move(expectedVertexReflection.GetValue());
-	}
-	if (info.stages & ShaderStage::FRAGMENT_BIT) {
-		AQUA_TRY(DeserializeShaderReflection(info.fragmentShaderAsset.reflectionPath), expectedFragmentReflection);
-		reflections.fragment = std::move(expectedFragmentReflection.GetValue());
-	}*/
+	AQUA_TRY(DeserializeShaderReflection(info.vertexShaderAsset.reflectionPath), expectedVertexReflection);
+	AQUA_TRY(DeserializeShaderReflection(info.fragmentShaderAsset.reflectionPath), expectedFragmentReflection);
 	// AQUA_TRY(_CreateDescriptorSetLayouts(info, reflections));
 	// AQUA_TRY(_CreateRenderPass(info));
 

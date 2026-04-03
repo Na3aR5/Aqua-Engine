@@ -1,6 +1,8 @@
 #ifndef AQUA_BUILD_HEADER
 #define AQUA_BUILD_HEADER
 
+#include <aqua/Platform.h>
+
 #ifndef NDEBUG
 	#define AQUA_DEBUG 1
 	#define AQUA_RELEASE 0
@@ -8,6 +10,8 @@
 	#define AQUA_DEBUG 0
 	#define AQUA_RELEASE 1
 #endif // !NDEBUG
+
+#define AQUA_NODISCARD [[nodiscard]]
 
 #define AQUA_SUPPORT_MAP_IMPLEMENTATION
 // #define AQUA_SUPPORT_QUEUE_IMPLEMENTATION

@@ -52,7 +52,7 @@ namespace aqua {
 		// and determine what events layer will handle
 		// Return handle to constructed layer
 		template <typename LayerType, typename ... Types>
-		Expected<LayerHandle<LayerType>, Error> EmplaceLayer(
+		AQUA_NODISCARD Expected<LayerHandle<LayerType>, Error> EmplaceLayer(
 		const EventSet& eventSet, Types&& ... args) noexcept {
 			AQUA_TRY(CreateUniqueData<LayerType>(std::forward<Types>(args)...), layer);
 			AQUA_TRY(m_layers.EmplaceBack(std::move(layer.GetValue())));

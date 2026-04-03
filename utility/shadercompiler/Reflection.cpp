@@ -6,6 +6,39 @@
 #include <map>
 #include <fstream>
 
+template <>
+struct aqua::Serializer::NeedDefinedAlgorithm<aqua::ShaderReflection> {
+	using Need = std::true_type;
+};
+template <>
+struct aqua::Serializer::NeedDefinedAlgorithm<aqua::ShaderReflection::DescriptorSet> {
+	using Need = std::true_type;
+};
+
+template <>
+struct aqua::Serializer::ObjectSerializer<aqua::ShaderReflection::DescriptorSet> {
+public:
+	Status operator()(std::ofstream& fs, const aqua::ShaderReflection::DescriptorSet& set) const noexcept {
+		AQUA_TRY(ObjectSerializer<decltype(set.set)>()(fs, set.set));
+		AQUA_TRY(ObjectSerializer<decltype(set.bindings)>()(fs, set.bindings));
+
+		return Success{};
+	}
+};
+
+template <>
+struct aqua::Serializer::ObjectSerializer<aqua::ShaderReflection> {
+public:
+	Status operator()(std::ofstream& fs, const aqua::ShaderReflection& reflection) const noexcept {
+		AQUA_TRY(ObjectSerializer<decltype(reflection.entryPointName)>()(fs, reflection.entryPointName));
+		AQUA_TRY(ObjectSerializer<decltype(reflection.vertexLayouts)>()(fs, reflection.vertexLayouts));
+		AQUA_TRY(ObjectSerializer<decltype(reflection.descriptorSets)>()(fs, reflection.descriptorSets));
+		AQUA_TRY(ObjectSerializer<decltype(reflection.pushConstants)>()(fs, reflection.pushConstants));
+
+		return Success{};
+	}
+};
+
 namespace {
 	uint32_t ConvertStages(EShLanguageMask stages) noexcept {
 		uint32_t convertedStages = 0;
@@ -115,26 +148,10 @@ aqua::ShaderReflection reflect::MakeReflection(const uint32_t* spirvSource, size
 
 std::string reflect::WriteShaderReflection(const std::filesystem::path& path, const aqua::ShaderReflection& reflection) {
 	aqua::Serializer serializer;
+	serializer.SetTargetFile(path.string().c_str());
 
-	std::string errorString = std::string("Failed to write file ") + path.string();
-	if (!serializer.SetTargetFile(path.string().c_str()).IsSuccess()) {
-		return errorString;
-	}
-	aqua::Status serializeResult = aqua::Success{};
-	serializeResult = serializer.SerializeArray(reflection.entryPointName.GetPtr(), (uint32_t)reflection.entryPointName.GetSize());
-	serializeResult = serializer.SerializeArray(reflection.vertexLayouts.GetPtr(), (uint32_t)reflection.vertexLayouts.GetSize());
-	{
-		uint32_t descriptorSetCount = (uint32_t)reflection.descriptorSets.GetSize();
-		serializeResult = serializer.SerializeTrivial(descriptorSetCount);
-		for (const aqua::ShaderReflection::DescriptorSet& set : reflection.descriptorSets) {
-			serializeResult = serializer.SerializeTrivial(set.set);
-			serializeResult = serializer.SerializeArray(set.bindings.GetPtr(), (uint32_t)set.bindings.GetSize());
-		}
-	}
-	serializeResult = serializer.SerializeArray(reflection.pushConstants.GetPtr(), (uint32_t)reflection.pushConstants.GetSize());
-
-	if (!serializeResult.IsSuccess()) {
-		return errorString;
+	if (!serializer.Serialize(reflection).IsSuccess()) {
+		return "Failed to write shader reflection";
 	}
 	return {};
 }

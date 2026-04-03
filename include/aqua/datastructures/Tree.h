@@ -83,7 +83,8 @@ namespace aqua {
 					using iterator_category = std::bidirectional_iterator_tag;
 
 				public:
-					_Iterator(pointer node, pointer root) : m_node(node), m_root(root) {}
+					_Iterator(pointer node, pointer root, pointer prev = nullptr) noexcept :
+						m_node(node), m_root(root), m_prev(prev) {}
 
 				public:
 					reference       operator*()		  { return m_node->value; }
@@ -149,6 +150,12 @@ namespace aqua {
 					}
 
 					operator bool() const noexcept { return m_node != nullptr; }
+
+					template <bool OtherIsConst>
+					requires (!IsConst && OtherIsConst)
+					operator _Iterator<OtherIsConst>() const noexcept {
+						return _Iterator<OtherIsConst>(m_node, m_root, m_prev);
+					}
 
 				public:
 					_Iterator& MoveLeft() {
@@ -253,7 +260,7 @@ namespace aqua {
 	public:
 		template <typename ... Types>
 		requires (std::is_nothrow_constructible_v<ValueType, Types...>)
-		[[nodiscard]] Expected<Iterator, Error> Emplace(Types&&... args) {
+		AQUA_NODISCARD Expected<Iterator, Error> Emplace(Types&&... args) {
 			AQUA_TRY(_AllocateNode(), expectedNewNode);
 
 			_NodePtr newNode = expectedNewNode.GetValue();
@@ -268,11 +275,10 @@ namespace aqua {
 			return _MakeIterator(newNode);
 		}
 
-		[[nodiscard]] Expected<Iterator, Error> Insert(const ValueType& value) noexcept {
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(const ValueType& value) noexcept {
 			return Emplace(value);
 		}
-
-		[[nodiscard]] Expected<Iterator, Error> Insert(ValueType&& value) noexcept {
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(ValueType&& value) noexcept {
 			return Emplace(std::move(value));
 		}
 
@@ -283,6 +289,20 @@ namespace aqua {
 		}
 
 	public:
+		template <typename CompareType>
+		Iterator Find(const CompareType& value) noexcept {
+			const ComparatorType& comparator = GetComparator();
+			_NodePtr root = m_pair.value.value.root;
+
+			while (root != nullptr) {
+				if (value == root->value) {
+					return _MakeIterator(root);
+				}
+				root = root->childs[(_Direction)(!comparator(value, root->value))];
+			}
+			return end();
+		}
+
 		template <typename CompareType>
 		ConstIterator Find(const CompareType& value) const noexcept {
 			const ComparatorType& comparator = GetComparator();
@@ -527,13 +547,18 @@ namespace aqua {
 			return *this;
 		}
 
+		MappedType&       operator[](const KeyType& key)       { return Find(key)->value; }
+		const MappedType& operator[](const KeyType& key) const { return Find(key)->value; }
+
 	public:
-		[[nodiscard]] Expected<Iterator, Error> Emplace(KeyType&& key, MappedType&& value) noexcept {
+		AQUA_NODISCARD Expected<Iterator, Error> Emplace(KeyType&& key, MappedType&& value) noexcept {
 			return m_tree.Emplace(std::forward<KeyType>(key), std::forward<MappedType>(value));
 		}
-
-		[[nodiscard]] Expected<Iterator, Error> Insert(ValueType&& value) noexcept {
-			return m_tree.Emplace(std::forward<ValueType>(value));
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(const ValueType& value) noexcept {
+			return m_tree.Emplace(value);
+		}
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(ValueType&& value) noexcept {
+			return m_tree.Emplace(std::move(value));
 		}
 
 	public:
@@ -543,13 +568,9 @@ namespace aqua {
 		size_t GetSize() const noexcept { return m_tree.GetSize(); }
 
 	public:
-		ConstIterator Find(const KeyType& key) const noexcept {
-			return m_tree.Find(key);
-		}
-
-		bool Has(const KeyType& key) const noexcept {
-			return m_tree.Find(key) != m_tree.cend();
-		}
+		Iterator      Find(const KeyType& key)		 noexcept { return m_tree.Find(key); }
+		ConstIterator Find(const KeyType& key) const noexcept { return m_tree.Find(key); }
+		bool Has(const KeyType& key) const noexcept { return m_tree.Find(key) != m_tree.cend(); }
 
 	public:
 		Iterator      begin()        noexcept { return m_tree.begin(); }

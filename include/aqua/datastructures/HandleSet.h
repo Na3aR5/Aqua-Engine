@@ -72,7 +72,7 @@ namespace aqua {
 
 	public:
 		template <typename ... Types>
-		Expected<Handle, Error> Emplace(Types&& ... args) noexcept
+		AQUA_NODISCARD Expected<Handle, Error> Emplace(Types&& ... args) noexcept
 		requires (std::is_nothrow_constructible_v<T, Types...>) {
 			size_t valueIndex = m_values.GetSize();
 

@@ -103,7 +103,7 @@ namespace aqua {
 
 	// Set() method overloads
 	public:
-		[[nodiscard]] Status Set(const BasicSafeString& other) noexcept {
+		AQUA_NODISCARD Status Set(const BasicSafeString& other) noexcept {
 			if (this == &other) {
 				return Success{};
 			}
@@ -128,7 +128,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		[[nodiscard]] Status Set(ConstPointer cstr) noexcept {
+		AQUA_NODISCARD Status Set(const ValueType* cstr) noexcept {
 			if (m_pair.value.first == cstr) {
 				return Success{};
 			}
@@ -150,7 +150,7 @@ namespace aqua {
 			return Success{};
 		}
 
-		[[nodiscard]] Status Set(ConstPointer cstr, size_t count) noexcept {
+		AQUA_NODISCARD Status Set(const ValueType* cstr, size_t count) noexcept {
 			if (cstr == nullptr && count > 0) {
 				return Error::INPUT_ARGUMENTS_ARE_INVALID;
 			}
@@ -173,7 +173,7 @@ namespace aqua {
 		}
 
 		// Set new value to the string as 'count' times repeated character 'value'
-		[[nodiscard]] Status Set(size_t count, ValueType value) noexcept {
+		AQUA_NODISCARD Status Set(size_t count, ValueType value) noexcept {
 			if (count == 0) {
 				_ThisDeallocate();
 				return Success{};
@@ -194,7 +194,7 @@ namespace aqua {
 
 		// Set new value to the string by copying range ['begin, 'end') of elements
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Status Set(Iterator begin, Iterator end) noexcept {
+		AQUA_NODISCARD Status Set(Iterator begin, Iterator end) noexcept {
 			size_t size = std::distance(begin, end);
 			if (size == 0) {
 				_ThisDeallocate();
@@ -221,7 +221,7 @@ namespace aqua {
 	// Append() method overloads
 	public:
 		// Add 'other' string to the end of this string (can add itself)
-		[[nodiscard]] Status Append(const BasicSafeString& other) noexcept {
+		AQUA_NODISCARD Status Append(const BasicSafeString& other) noexcept {
 			if (other.IsEmpty()) {
 				return Success{};
 			}
@@ -230,7 +230,7 @@ namespace aqua {
 
 		// Add c-style string 'cstr' to the end (can add it's own pointer)
 		// 'nullptr' is considered as an empty string
-		[[nodiscard]] Status Append(ConstPointer cstr) noexcept {
+		AQUA_NODISCARD Status Append(ConstPointer cstr) noexcept {
 			size_t cstrSize;
 			if (cstr == nullptr || (cstrSize = this->_CStrLength(cstr)) == 0) {
 				return Success{};
@@ -242,7 +242,7 @@ namespace aqua {
 		}
 
 		// Add 'count' characters 'value' to the end
-		[[nodiscard]] Status Append(size_t count, ValueType value) noexcept {
+		AQUA_NODISCARD Status Append(size_t count, ValueType value) noexcept {
 			if (count == 0) {
 				return Success{};
 			}
@@ -251,7 +251,7 @@ namespace aqua {
 
 		// Add range ['begin', 'end') of elements to the end by copy
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Status Append(Iterator begin, Iterator end) noexcept {
+		AQUA_NODISCARD Status Append(Iterator begin, Iterator end) noexcept {
 			size_t size = std::distance(begin, end);
 			if (size == 0) {
 				return Success{};
@@ -262,7 +262,7 @@ namespace aqua {
 	// 'Add' methods
 	public:
 		// Add 'value' to the end
-		[[nodiscard]] Status Push(ValueType value) noexcept {
+		AQUA_NODISCARD Status Push(ValueType value) noexcept {
 			size_t newSize = GetSize() + 1;
 			if (newSize > GetCapacity()) {
 				AQUA_TRY(_ThisReallocate(_SizeToCapacity(newSize)));
@@ -274,8 +274,7 @@ namespace aqua {
 		}
 
 		// Insert 'value' 'count' times starting from any valid position 'where' in the string
-		[[nodiscard]] Status Insert(
-		ConstIterator where, size_t count, ValueType value) noexcept {
+		AQUA_NODISCARD Status Insert(ConstIterator where, size_t count, ValueType value) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
@@ -294,12 +293,12 @@ namespace aqua {
 		}
 
 		// Insert 'value' at any valid position 'where' in the string
-		[[nodiscard]] Status Insert(ConstIterator where, ValueType value) noexcept {
+		AQUA_NODISCARD Status Insert(ConstIterator where, ValueType value) noexcept {
 			return Insert(where, 1, value);
 		}
 
 		// Insert 'other' string at any valid position 'where' in this string
-		[[nodiscard]] Status Insert(
+		AQUA_NODISCARD Status Insert(
 		ConstIterator where, const BasicSafeString& other) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
@@ -320,7 +319,7 @@ namespace aqua {
 
 		// Insert c-style string 'cstr' at any valid position 'where' in the string
 		// 'nullptr' is considered as an empty string
-		[[nodiscard]] Status Insert(ConstIterator where, ConstPointer cstr) noexcept {
+		AQUA_NODISCARD Status Insert(ConstIterator where, ConstPointer cstr) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
 			}
@@ -342,7 +341,7 @@ namespace aqua {
 		}
 
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Status Insert(
+		AQUA_NODISCARD Status Insert(
 		ConstIterator where, Iterator rangeBegin, Iterator rangeEnd) noexcept {
 			if (!_IsValidIterator(where)) {
 				return Unexpected<Error>(Error::ITERATOR_OR_INDEX_OUT_OF_RANGE);
@@ -369,7 +368,7 @@ namespace aqua {
 		}
 
 	public:
-		[[nodiscard]] Status Resize(size_t newSize, ValueType value = ValueType(0)) noexcept {
+		AQUA_NODISCARD Status Resize(size_t newSize, ValueType value = ValueType(0)) noexcept {
 			size_t thisSize = GetSize();
 			if (thisSize == newSize) {
 				return Success{};

@@ -49,7 +49,7 @@ namespace aqua {
 	// Set() method overloads
 	public:
 		// Set new value of array as copy of 'other' array
-		[[nodiscard]] Status Set(const SafeArray& other) noexcept
+		AQUA_NODISCARD Status Set(const SafeArray& other) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			if (this == &other) {
 				return Success{};
@@ -81,7 +81,7 @@ namespace aqua {
 		}
 
 		// Set new value of array as sequence of 'count' repeating 'value' objects
-		[[nodiscard]] Status Set(size_t count, ConstReference value) noexcept
+		AQUA_NODISCARD Status Set(size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			if (count == 0) {
 				_ThisDeallocate();
@@ -107,7 +107,7 @@ namespace aqua {
 
 		// Set new value of array as copied range ['rangeBegin', 'rangeEnd') of elements
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Status Set(Iterator rangeBegin, Iterator rangeEnd) noexcept
+		AQUA_NODISCARD Status Set(Iterator rangeBegin, Iterator rangeEnd) noexcept
 		requires(std::is_nothrow_assignable_v<ValueType, std::iter_value_t<Iterator>> ||
 				(std::is_nothrow_convertible_v<std::iter_value_t<Iterator>, ValueType> &&
 				 std::is_nothrow_copy_assignable_v<ValueType>)) {
@@ -146,7 +146,7 @@ namespace aqua {
 	public:
 		// Construct object at the end by perfect forwarding construct arguments 'args'
 		template <typename ... Types>
-		[[nodiscard]] Status EmplaceBack(Types&& ... args) noexcept
+		AQUA_NODISCARD Status EmplaceBack(Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
 			AQUA_TRY(Reserve(1));
 
@@ -163,17 +163,17 @@ namespace aqua {
 		}
 
 		// Copy 'value' to the end
-		[[nodiscard]] Status Push(ConstReference value) noexcept {
+		AQUA_NODISCARD Status Push(ConstReference value) noexcept {
 			return EmplaceBack(value);
 		}
 
 		// Move 'value' to the end
-		[[nodiscard]] Status Push(ValueType&& value) noexcept {
+		AQUA_NODISCARD Status Push(ValueType&& value) noexcept {
 			return EmplaceBack(std::move(value));
 		}
 
 		// Copy 'count' times 'value' object to the end
-		[[nodiscard]] Status Push(size_t count, ConstReference value) noexcept
+		AQUA_NODISCARD Status Push(size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			AQUA_TRY(Reserve(count));
 
@@ -185,7 +185,7 @@ namespace aqua {
 
 		// Copy range ['rangeBegin', 'rangeEnd') of elements into the end
 		template <std::forward_iterator Iterator>
-		[[nodiscard]] Status Push(Iterator rangeBegin, Iterator rangeEnd) noexcept
+		AQUA_NODISCARD Status Push(Iterator rangeBegin, Iterator rangeEnd) noexcept
 		requires(std::is_nothrow_assignable_v<ValueType, std::iter_value_t<Iterator>> ||
 				(std::is_nothrow_convertible_v<std::iter_value_t<Iterator>, ValueType> &&
 				 std::is_nothrow_copy_assignable_v<ValueType>)) {
@@ -224,7 +224,7 @@ namespace aqua {
 
 		// Construct object by perfect forwarding construction arguments 'args' at any valid position 'where'
 		template <typename ... Types>
-		[[nodiscard]] Expected<Iterator, Error> Emplace(ConstIterator where, Types&& ... args) noexcept
+		AQUA_NODISCARD Expected<Iterator, Error> Emplace(ConstIterator where, Types&& ... args) noexcept
 		requires(std::is_nothrow_constructible_v<ValueType, Types...>) {
 			if (!_IsValidIterator(where)) {
 				return Error::ITERATOR_OR_INDEX_OUT_OF_RANGE;
@@ -243,17 +243,17 @@ namespace aqua {
 		}
 
 		// Add copy of 'value' object at any valid position 'where'
-		[[nodiscard]] Expected<Iterator, Error> Insert(ConstIterator where, ConstReference value) noexcept {
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(ConstIterator where, ConstReference value) noexcept {
 			return Emplace(where, value);
 		}
 
 		// Move 'value' object at any valid position 'where'
-		[[nodiscard]] Expected<Iterator, Error> Insert(ConstIterator where, ValueType&& value) noexcept {
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(ConstIterator where, ValueType&& value) noexcept {
 			return Emplace(where, std::move(value));
 		}
 
 		// Copy 'count' times 'value' object starting from any valid position 'where'
-		[[nodiscard]] Expected<Iterator, Error> Insert(
+		AQUA_NODISCARD Expected<Iterator, Error> Insert(
 		ConstIterator where, size_t count, ConstReference value) noexcept
 		requires(std::is_nothrow_copy_constructible_v<ValueType>) {
 			if (!_IsValidIterator(where)) {
@@ -314,7 +314,7 @@ namespace aqua {
 
 	public:
 		// Extend capacity to make sure that 'count' elements can be added without reallocation
-		[[nodiscard]] Status Reserve(size_t count) noexcept {
+		AQUA_NODISCARD Status Reserve(size_t count) noexcept {
 			if (m_pair.value.first == nullptr && count > 0) {
 				AQUA_TRY(_ThisReallocate(count));
 				return Success{};
@@ -328,7 +328,7 @@ namespace aqua {
 
 		// If 'newSize' >= array.size, construct by default 'newSize - array.size' elements starting from the end
 		// Otherwise - remove 'array.size - newSize' elements from the end
-		[[nodiscard]] Status Resize(size_t newSize) noexcept
+		AQUA_NODISCARD Status Resize(size_t newSize) noexcept
 		requires(std::is_nothrow_default_constructible_v<ValueType>) {
 			size_t thisSize = GetSize();
 			if (newSize == thisSize) {
